@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+ultralytics       # Dùng cho YOLOv11
+langchain
+langchain-google-genai  # Nếu dùng Gemini
+python-dotenv
+opencv-python
+streamlit         # Làm UI nhanh
+python-multipart  # Để upload file qua API
+gTTS
+audio-recorder-streamlit
+pyarrow
