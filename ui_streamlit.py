@@ -112,7 +112,7 @@ def vocabulary_practice(result):
                     files = {"audio_file": ("recorded_audio.wav", audio_bytes, "audio/wav")}
                     data = {"target_word": target}
 
-                    response = requests.post(eval_url, files=files, data=data)
+                    response = requests.post(eval_url, files=files, data=data, timeout=30)
 
                     if response.status_code == 200:
                         eval_result = response.json()
