@@ -28,27 +28,30 @@ class VoiceAgent(Agent):
         combined_text = lesson_md.replace("#", "").replace("*", "").replace("-", "").strip()
         return self.convert_text_to_speech(combined_text, language=self.default_language)
 
-    def check_speech(self, target_word, user_said):
-        prompts = f"""
-        As an English Pronunciation Coach, evaluate the user's attempt.
+    def check_speech(self, target_word, audio_bytes):
+        # Cấu hình Prompt hướng dẫn chi tiết
+        prompt = f"""
+        As an English Pronunciation Coach, listen to the user's audio and evaluate their pronunciation.
         Target word: "{target_word}"
-        User actually said: "{user_said}"
-        
-        Please provide:
-        1. Accuracy Score (0-100%).
-        2. Brief feedback in Vietnamese explaining why it's wrong (e.g., missed ending sounds, wrong vowel).
-        3. A tip to improve.
-        
-        Format the response as JSON:
-        {{
-            "score": 85,
-            "feedback": "Bạn phát âm khá tốt nhưng bị thiếu âm 's' ở cuối.",
-            "tip": "Hãy chú ý xì nhẹ ở cuối lưỡi khi kết thúc từ này."
-        }}
-        """
-        prompt = PromptTemplate(input_variables=["target", "user_said"], template=prompts)
-        chain = prompt | self.gemini
 
-        return chain.invoke({"target": target_word, "user_said": user_said}).content
+        Instructions:
+        1. Listen carefully to the audio provided.
+        2. Compare it with the correct pronunciation of the target word.
+        3. Return a JSON object with:
+           - "score": (int 0-100)
+           - "feedback": (string in Vietnamese, e.g., "Thiếu âm cuối 's'", "Phát âm sai nguyên âm 'a'")
+           - "tip": (string in Vietnamese, how to fix it)
+        """
+
+        # Gửi cả Text và Audio cho Gemini 2.5 Flash
+        response = self.native_model.generate_content([
+            prompt,
+            {
+                "mime_type": "audio/wav",
+                "data": audio_bytes
+            }
+        ])
+
+        return response.text
 
 
