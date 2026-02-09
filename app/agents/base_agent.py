@@ -1,4 +1,5 @@
 import os
+import google.generativeai as genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -12,3 +13,7 @@ class Agent:
             api_key=api_key,
             temperature=0.7
         )
+
+        genai.configure(api_key=api_key)
+        self.native_model = genai.GenerativeModel(model)
+
