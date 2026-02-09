@@ -3,6 +3,8 @@ import os
 import shutil
 import re
 import json
+from app.api.utils import *
+
 
 # Import các Agent theo cấu trúc thư mục mới
 from app.agents.vision_agent import DetectAgent
@@ -15,43 +17,6 @@ router = APIRouter()
 vision_agent = DetectAgent()
 teacher_agent = TeacherAgent()
 voice_agent = VoiceAgent()
-
-UPLOAD_DIR = "static/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-# --- CÁC HÀM TIỆN ÍCH ---
-def save_upload_file(file: UploadFile) -> str:
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    try:
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-        return file_path
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
-
-
-def extract_json_from_ai(text: str):
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group().strip())
-        except:
-            return None
-    return None
-
-
-def extract_quiz(text: str):
-    quiz_match = re.search(r"\[QUIZ_START\](.*?)\[QUIZ_END\]", text, re.DOTALL)
-    if quiz_match:
-        try:
-            quiz_data = json.loads(quiz_match.group(1).strip())
-            clean_text = re.sub(r"\[QUIZ_START\].*?\[QUIZ_END\]", "", text, flags=re.DOTALL).strip()
-            return clean_text, quiz_data
-        except:
-            return text, None
-    return text, None
-
 
 # --- API ENDPOINTS ---
 @router.post("/analyze")
@@ -81,10 +46,11 @@ async def analyze_image(file: UploadFile = File(...)):
 @router.post("/evaluate-pronunciation")
 async def evaluate_pronunciation(
         target_word: str = Form(...),
-        user_said: str = Form(...)
+        audio_file: UploadFile = File(...),
 ):
     try:
-        evaluation_raw = voice_agent.check_speech(target_word, user_said)
+        audio_bytes = await audio_file.read()
+        evaluation_raw = voice_agent.check_speech(target_word, audio_bytes)
 
         # Làm sạch và parse JSON
         evaluation_data = extract_json_from_ai(evaluation_raw)
