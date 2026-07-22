@@ -52,7 +52,7 @@ Dự án được xây dựng theo mô hình Client-Server tách biệt, giúp d
 
 * Khởi động Backend (FastAPI):
 
-  - uvicorn app.main:app --reload
+  - uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 
 * Khởi động Frontend (Streamlit):
 
