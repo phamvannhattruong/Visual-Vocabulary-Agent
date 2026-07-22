@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Vocabulary Agent 🤖</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-robot"></i> Visual Vocabulary Agent</h1>
+            <p>Learn English through your lens. Upload an image or use your webcam to start!</p>
+        </header>
+
+        <main>
+            <!-- Input Section -->
+            <section class="input-section card">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="upload"><i class="fas fa-file-upload"></i> Upload Image</button>
+                    <button class="tab-btn" data-tab="webcam"><i class="fas fa-camera"></i> Use Webcam</button>
+                </div>
+
+                <div class="tab-content active" id="upload-tab">
+                    <div class="upload-box" id="drop-area">
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drag & Drop or <span>Browse</span></p>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="webcam-tab">
+                    <div class="webcam-container">
+                        <video id="webcam-video" autoplay playsinline></video>
+                        <canvas id="webcam-canvas" hidden></canvas>
+                        <button id="capture-btn" class="primary-btn"><i class="fas fa-circle"></i> Capture</button>
+                    </div>
+                </div>
+
+                <div id="preview-container" class="hidden">
+                    <img id="image-preview" src="" alt="Preview">
+                    <button id="analyze-btn" class="primary-btn">Start Learning! <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </section>
+
+            <!-- Loading Spinner -->
+            <div id="loader" class="hidden">
+                <div class="spinner"></div>
+                <p>Agents are analyzing your image...</p>
+            </div>
+
+            <!-- Results Section -->
+            <section id="results-section" class="hidden">
+                <div class="results-grid">
+                    <!-- Left: Vision Results -->
+                    <div class="card result-card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-search"></i> Detected Objects</h2>
+                        </div>
+                        <div class="card-body">
+                            <img id="annotated-image" src="" alt="Annotated Result">
+                            <div id="detected-tags" class="tag-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Teacher Results -->
+                    <div class="card result-card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-book-open"></i> AI Lesson</h2>
+                        </div>
+                        <div class="card-body" id="lesson-content">
+                            <!-- AI Content will be rendered here -->
+                        </div>
+                        <div id="quiz-container" class="quiz-section hidden">
+                            <hr>
+                            <h3><i class="fas fa-brain"></i> Quiz Time!</h3>
+                            <div id="quiz-question"></div>
+                            <div id="quiz-options" class="options-grid"></div>
+                            <div id="quiz-feedback" class="hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Practice Modal -->
+        <div id="practice-modal" class="modal hidden">
+            <div class="modal-content card">
+                <span class="close-modal">&times;</span>
+                <h2><i class="fas fa-microphone"></i> Pronunciation Practice</h2>
+                <p>Try to say: <strong id="target-word"></strong></p>
+                
+                <div class="recorder-controls">
+                    <button id="record-btn" class="record-btn"><i class="fas fa-microphone"></i></button>
+                    <p id="record-status">Click to start recording</p>
+                </div>
+
+                <div id="evaluation-result" class="hidden">
+                    <div class="score-badge">
+                        <span id="eval-score">0</span>%
+                    </div>
+                    <div class="eval-details">
+                        <p><strong>Feedback:</strong> <span id="eval-feedback"></span></p>
+                        <p><strong>Tip:</strong> <span id="eval-tip"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Multi-Agent Visual Learning - 2026</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
