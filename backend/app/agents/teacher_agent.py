@@ -48,5 +48,5 @@ class TeacherAgent(Agent):
             - Format the output beautifully using Markdown (bold text, emojis, lists).
             - Ensure the content is easy to read for an English learner.
             """
-        return self.generate_content(prompts.format(objects=object_detected))
+        return self.generate_response(prompts.format(objects=object_detected))
 
