@@ -11,6 +11,8 @@ class Agent:
     def __init__(self, model: str = "gemini-2.5-flash"):
         self.api_key = os.getenv("API_KEY_GEMINI")
         self.model_name = model
+        self.hf_token = os.getenv("HF_TOKEN") 
+        self.model_id = ""
 
         if not self.api_key:
             raise ValueError("Không tìm thấy API Key của Gemini.")
