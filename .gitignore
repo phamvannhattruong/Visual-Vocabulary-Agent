@@ -1,0 +1,5 @@
+.env
+app/models/*.pt
+!app/models/.gitkeep
+__pycache__
+*.jpg
