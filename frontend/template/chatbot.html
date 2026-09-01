@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Advisor - Gemini Style</title>
+    <!-- Font Awesome Icons & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/chatbot.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="icon-btn" id="toggle-sidebar-btn" title="Thu gọn">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <button class="new-chat-btn" id="new-chat-btn">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Cuộc trò chuyện mới</span>
+                </button>
+            </div>
+
+            <div class="sidebar-history">
+                <div class="history-title">Gần đây</div>
+                <ul class="history-list">
+                    
+                </ul>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="user-info">
+                        <span class="name">Học viên AI</span>
+                        <span class="status">Free Plan</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Header Bar -->
+            <header class="chat-header">
+                <div class="model-selector">
+                    <span class="model-name">AI Tutor Pro</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+            </header>
+
+            <!-- Chat Content Body -->
+            <div class="chat-body" id="chat-body">
+                <!-- Welcome View (Hiển thị khi chưa nhắn tin) -->
+                <div class="welcome-container" id="welcome-container">
+                    <h1 class="greeting">
+                        <span class="gradient-text">Xin chào, Bạn!</span><br>
+                        Tôi có thể giúp gì cho lộ trình học AI của bạn?
+                    </h1>
+                    
+                    
+                </div>
+
+                <!-- Messages Stream (Dữ liệu tin nhắn sẽ render ở đây) -->
+                <div class="message-list" id="message-list"></div>
+            </div>
+
+            <!-- Input Bar (Floating) -->
+            <div class="input-container">
+                <div class="input-box">
+                    <textarea id="user-input" placeholder="Hỏi AI Tutor bất cứ điều gì về tiếng anh" rows="1"></textarea>
+                    <div class="input-actions">
+                        <button class="action-btn" title="Đính kèm tài liệu/ảnh"><i class="fa-solid fa-paperclip"></i></button>
+                        <button class="send-btn" id="send-btn" disabled>
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="disclaimer">AI Tutor có thể đưa ra câu trả lời chưa chính xác. Hãy kiểm tra lại các mốc kiến thức quan trọng.</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="chat.js"></script>
+</body>
+</html>

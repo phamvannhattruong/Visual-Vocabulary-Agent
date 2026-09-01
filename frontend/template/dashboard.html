@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Vocabulary Agent - Trang Chủ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="../static/css/dashboard.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="logo-text">
+                    <span class="brand-title">VVA</span>
+                    <span class="brand-sub">Visual Vocabulary</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="/" class="nav-link active">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="/learn-image" class="nav-link btn-highlight">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <span>Học theo ảnh</span>
+                </a>
+                <a href="/ipa" class="nav-link">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Bảng IPA</span>
+                </a>
+                <a href="/progress" class="nav-link">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Tiến trình</span>
+                </a>
+            </nav>
+
+            <div class="nav-user">
+                <button class="btn-icon" title="Thông báo">
+                    <i class="fa-regular fa-bell"></i>
+                </button>
+                <div class="user-profile">
+                    <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="User Avatar" class="avatar-img">
+                    <div class="user-info">
+                        <span class="user-name">Học viên VVA</span>
+                        <span class="user-role">Thành viên Pro</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        
+        <section class="welcome-banner">
+            <div class="banner-content">
+                <h2>Chào mừng trở lại! 👋</h2>
+                <p>Hôm nay bạn muốn luyện tập phát âm từ vựng theo phương pháp nào?</p>
+            </div>
+            <div class="banner-stats">
+                <div class="stat-item">
+                    <i class="fa-solid fa-fire text-orange"></i>
+                    <div>
+                        <strong>7 ngày</strong>
+                        <small>Chuỗi học tập</small>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fa-solid fa-bullseye text-indigo"></i>
+                    <div>
+                        <strong>85%</strong>
+                        <small>Độ chuẩn xác</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="learning-modes-grid">
+            
+            <div class="mode-card featured">
+                <div class="card-badge">Khuyên dùng</div>
+                <div class="card-icon">
+                    <i class="fa-solid fa-camera-retro"></i>
+                </div>
+                <h3>Học phát âm qua Hình ảnh</h3>
+                <p>Tải lên ảnh hoặc chụp vật thể xung quanh. <strong>Vision Agent</strong> sẽ nhận diện từ vựng và <strong>Voice Agent</strong> sẽ hướng dẫn bạn phát âm chuẩn từng khẩu hình.</p>
+                
+                <a href="/learn-image" class="btn-primary">
+                    <span>Bắt đầu học ngay</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="mode-card">
+                <div class="card-icon indigo">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <h3>Gia sư AI</h3>
+                <p>Học trực tiếp 1-1 với <strong>AI</strong>.</p>
+                
+                <a href="/avatar-practice" class="btn-outline">
+                    <span>Luyện tập 1-1</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="mode-card">
+                <div class="card-icon emerald">
+                    <i class="fa-solid fa-spell-check"></i>
+                </div>
+                <h3>Tra cứu & Luyện Bảng IPA</h3>
+                <p>Khám phá 44 nguyên âm & phụ âm tiếng Anh chuẩn quốc tế kết hợp tra cứu từ điển phiên âm nhanh chóng.</p>
+                
+                <a href="/ipa" class="btn-outline">
+                    <span>Xem bảng IPA</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
