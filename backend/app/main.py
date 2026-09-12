@@ -36,6 +36,10 @@ async def root(request: Request):
 async def learn_image(request: Request):
     return templates.TemplateResponse("imagelearn.html", {"request": request})
 
+@app.get('/chat-bot')
+async def chat_bot(request: Request):
+    return templates.TemplateResponse("chatbot.html", {"request": request})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000, reload=True)
