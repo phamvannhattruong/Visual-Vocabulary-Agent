@@ -5,6 +5,8 @@ import os
 import json
 from pathlib import Path
 from fastapi import File, UploadFile
+from backend.app.schemas import ChatRequest
+from typing import List, Dict
 
 # Resolve UPLOAD_DIR relative to the project root
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -19,6 +21,7 @@ def save_upload_file(file: UploadFile) -> str:
         return str(file_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
+
 
 
 def extract_json_from_ai(text: str):
@@ -41,3 +44,23 @@ def extract_quiz(text: str):
         except:
             return text, None
     return text, None
+
+def get_relative_url(absolute_path: str) -> str:
+    """Converts an absolute path within static/ to a relative URL."""
+    path_obj = Path(absolute_path)
+    try:
+        # Find 'static' in the path and return everything from there
+        parts = path_obj.parts
+        static_index = parts.index("static")
+        return "/" + "/".join(parts[static_index:])
+    except ValueError:
+        return absolute_path
+
+def build_message_list(request: ChatRequest) -> List[Dict[str, str]]:
+    """Hỗ trợ cả gửi 1 tin nhắn đơn lẻ hoặc gửi toàn bộ lịch sử chat."""
+    if request.messages:
+        return [{"role": m.role, "content": m.content} for m in request.messages]
+    elif request.message:
+        return [{"role": "user", "content": request.message.strip()}]
+    else:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp nội dung tin nhắn.")
