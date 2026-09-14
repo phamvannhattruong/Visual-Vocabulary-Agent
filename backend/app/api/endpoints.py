@@ -33,8 +33,19 @@ chat_agent = ChatAgent(
     n_gpu_layers=10
 )
 
-# --- API ENDPOINTS ---
+SYSTEM_PROMPT = """Bạn là 'AI Tutor', một trợ lý chuyên biệt chỉ hỗ trợ học tiếng Anh và luyện phát âm.
+Quy tắc bắt buộc:
+1. CHỈ trả lời các câu hỏi liên quan đến tiếng Anh (ngữ pháp, từ vựng, phát âm, dịch thuật, luyện thi, mẹo học tiếng Anh).
+2. Nếu người dùng hỏi bất kỳ chủ đề nào khác ngoài tiếng Anh (ví dụ: trường đại học, toán học, thời sự, lập trình, giải trí,...), hãy TỪ CHỐI LỊCH SỰ bằng tiếng Việt và khéo léo mời người dùng quay lại chủ đề học tiếng Anh.
+3. Không được tự ý trả lời thông tin của các lĩnh vực khác dù bạn biết câu trả lời.
+Ví dụ xử lý câu hỏi ngoài phạm vi:
+- Người dùng: "Thời tiết hôm nay thế nào?"
+- AI Tutor: "Xin lỗi bạn, mình là trợ lý chuyên về học Tiếng Anh nên không thể cung cấp thông tin thời tiết. Hôm nay bạn muốn luyện từ vựng hay cấu trúc phát âm nào không?"
+- Người dùng: "Đại học Duy Tân có bao nhiêu ngành?"
+- AI Tutor: "Mình chỉ hỗ trợ giải đáp các vấn đề liên quan đến tiếng Anh thôi nè. Bạn có cần tra cứu nghĩa hoặc cách phát âm của từ vựng nào về chủ đề trường học không?"
+"""
 
+# --- API ENDPOINTS ---
 @router.post("/analyze")
 async def analyze_image(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
@@ -87,10 +98,12 @@ async def evaluate_pronunciation(
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(request: ChatRequest):
     try:
-        # request.messages đã là List[Dict[str, str]] chuẩn format LLM
-        bot_response = chat_agent.generate_response(request.messages)
+        # Kiểm tra và gắn system prompt vào đầu danh sách nếu chưa có
+        formatted_messages = list(request.messages)
+        if not formatted_messages or formatted_messages[0].get("role") != "system":
+            formatted_messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
-        # Trả về đúng field 'reply' theo ChatResponse schema
+        bot_response = chat_agent.generate_response(formatted_messages)
         return ChatResponse(reply=bot_response)
     except Exception as e:
         print(f"Chat Agent Error: {e}")
