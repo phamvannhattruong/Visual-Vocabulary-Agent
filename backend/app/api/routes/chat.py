@@ -27,15 +27,18 @@ def get_chat_agent() -> "ChatAgent":
     return ChatAgent(
         repo_id="DeeplearningVN/Chatbot_English",
         filename="meta-llama-3.1-8b.Q4_K_M.gguf",
+        system_prompt=SYSTEM_PROMPT,
         n_ctx=2048,
         n_gpu_layers=10,
     )
 
 
 def with_system_prompt(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    if messages and messages[0].get("role") == "system":
-        return messages
-    return [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+    """Use one trusted tutor instruction for every request."""
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *(message for message in messages if message.get("role") != "system"),
+    ]
 
 
 @router.post("/chat-bot", response_model=ChatResponse)

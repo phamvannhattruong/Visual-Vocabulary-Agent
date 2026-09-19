@@ -110,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
+        if (currentSessionId !== sessionId) archiveCurrentSession();
         currentSessionId = sessionId;
         chatHistory = [...session.messages];
 
@@ -190,6 +191,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Xóa một cuộc trò chuyện
+    function archiveCurrentSession() {
+        if (chatHistory.length > 0) saveCurrentSession();
+    }
+
+    function createSessionId() {
+        return `chat_${globalThis.crypto?.randomUUID?.() || Date.now()}`;
+    }
+
+    function startNewChat() {
+        // Save the active conversation before replacing it with a new thread.
+        archiveCurrentSession();
+        chatHistory = [];
+        currentSessionId = createSessionId();
+        if (messageList) messageList.innerHTML = "";
+        if (welcomeContainer) welcomeContainer.style.display = "block";
+        if (chatInput) {
+            chatInput.value = "";
+            chatInput.style.height = "auto";
+            chatInput.focus();
+        }
+        updateSendButtonState();
+        renderSidebar();
+    }
+
     function deleteSession(sessionId) {
         let sessions = getSessions();
         sessions = sessions.filter(s => s.id !== sessionId);
@@ -363,17 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Nút Tạo cuộc trò chuyện mới
     if (newChatBtn) {
         newChatBtn.addEventListener("click", () => {
-            chatHistory = [];
-            currentSessionId = null;
-            if (messageList) messageList.innerHTML = "";
-            if (welcomeContainer) welcomeContainer.style.display = "block";
-            if (chatInput) {
-                chatInput.value = "";
-                chatInput.style.height = "auto";
-                chatInput.focus();
-            }
-            updateSendButtonState();
-            renderSidebar();
+            startNewChat();
         });
     }
 
@@ -402,13 +417,5 @@ document.addEventListener("DOMContentLoaded", () => {
     // Vẽ lại sidebar khi trang tải lên lần đầu
     renderSidebar();
 
-    // Tự động tải cuộc trò chuyện gần nhất nếu có lịch sử lưu trong localStorage
-    const savedSessions = getSessions();
-    if (savedSessions.length > 0) {
-        // Tìm session mới nhất dựa trên timestamp
-        savedSessions.sort((a, b) => b.timestamp - a.timestamp);
-        loadSession(savedSessions[0].id);
-    } else {
-        updateSendButtonState();
-    }
+    startNewChat();
 });
