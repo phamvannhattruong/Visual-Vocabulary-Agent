@@ -24,7 +24,12 @@ class DetectAgent:
                 label = self.model.names[class_id]
                 detected_labels.append(label)
 
-        unique_labels = list(set(detected_labels))
+        # Class names are normally strings, but custom YOLO metadata can expose
+        # a mapping for a class name.  A mapping cannot be put in a ``set`` and
+        # would otherwise raise ``TypeError: unhashable type: 'dict'`` here.
+        # Convert labels to the text the teacher agent expects while preserving
+        # their detection order.
+        unique_labels = list(dict.fromkeys(str(label) for label in detected_labels))
 
         # Plot result and save
         annotated_frame = results[0].plot()
