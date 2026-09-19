@@ -3,3 +3,6 @@ app/models/*.pt
 !app/models/.gitkeep
 __pycache__
 *.jpg
+__init__.py
+.venv
+.idea

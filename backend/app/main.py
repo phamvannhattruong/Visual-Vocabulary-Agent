@@ -1,32 +1,20 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
-import os
-
-# Import the API router
-from backend.app.api.endpoints import router as api_router
+from backend.app.api.routes import chat, learning
+from backend.app.core.settings import ASSETS_DIR, TEMPLATES_DIR, UPLOAD_DIR
 
 app = FastAPI(title="Visual Vocabulary Agent API")
 
-# Define paths relative to this file
-# D:\Study\My_project\Visual_Vocabulary_Agent\backend\app\main.py -> BASE_DIR is D:\Study\My_project\Visual_Vocabulary_Agent
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-FRONTEND_DIR = BASE_DIR / "frontend"
-STATIC_DIR = FRONTEND_DIR / "static"
-UPLOAD_DIR = STATIC_DIR / "uploads"
-
-# Ensure upload directory exists
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-# Mount static files (includes uploads)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Configure templates
-templates = Jinja2Templates(directory=str(FRONTEND_DIR / "template"))
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Include API routes
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(learning.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 
 @app.get("/")
 async def root(request: Request):
