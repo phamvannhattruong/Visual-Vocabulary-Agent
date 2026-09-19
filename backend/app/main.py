@@ -18,15 +18,15 @@ app.include_router(chat.router, prefix="/api/v1")
 
 @app.get("/")
 async def root(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="dashboard.html")
 
 @app.get('/learn-image')
 async def learn_image(request: Request):
-    return templates.TemplateResponse("imagelearn.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="imagelearn.html")
 
 @app.get('/chat-bot')
 async def chat_bot(request: Request):
-    return templates.TemplateResponse("chatbot.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="chatbot.html")
 
 if __name__ == "__main__":
     import uvicorn
