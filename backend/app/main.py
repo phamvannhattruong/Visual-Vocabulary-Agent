@@ -28,6 +28,11 @@ async def learn_image(request: Request):
 async def chat_bot(request: Request):
     return templates.TemplateResponse(request=request, name="chatbot.html")
 
+
+@app.get('/ipa')
+async def ipa_chart(request: Request):
+    return templates.TemplateResponse(request=request, name="ipa.html")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000, reload=True)

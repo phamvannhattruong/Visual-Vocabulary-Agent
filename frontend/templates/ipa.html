@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng IPA | Visual Vocabulary Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/styles/ipa.css">
+</head>
+<body>
+    <header class="navbar">
+        <a class="brand" href="/" aria-label="Về trang chủ">
+            <span class="brand-mark"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <span><strong>VVA</strong><small>Visual Vocabulary</small></span>
+        </a>
+        <nav aria-label="Điều hướng chính">
+            <a href="/"><i class="fa-solid fa-house"></i> Trang chủ</a>
+            <a href="/learn-image"><i class="fa-solid fa-camera-retro"></i> Học theo ảnh</a>
+            <a class="active" href="/ipa"><i class="fa-solid fa-book-open"></i> Bảng IPA</a>
+            <a href="/chat-bot"><i class="fa-solid fa-robot"></i> Gia sư AI</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div>
+                <p class="eyebrow"><i class="fa-solid fa-sparkles"></i> PHÁT ÂM TIẾNG ANH</p>
+                <h1>Tra cứu và học <span>44 âm IPA</span></h1>
+                <p class="hero-copy">Chọn một âm để nghe cách đọc, quan sát khẩu hình và luyện tập với từ ví dụ quen thuộc.</p>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><span>/θ/</span><span>/ʃ/</span><span>/æ/</span><i class="fa-solid fa-volume-high"></i></div>
+        </section>
+
+        <section class="toolbar" aria-label="Tìm kiếm và lọc âm IPA">
+            <label class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="sound-search" type="search" placeholder="Tìm âm, ví dụ: /ʃ/, ship, vô thanh..." autocomplete="off"></label>
+            <div class="filters" role="tablist" aria-label="Loại âm">
+                <button class="filter active" data-filter="all" type="button">Tất cả <span>44</span></button>
+                <button class="filter" data-filter="vowel" type="button">Nguyên âm <span>20</span></button>
+                <button class="filter" data-filter="consonant" type="button">Phụ âm <span>24</span></button>
+            </div>
+        </section>
+
+        <section class="tip"><span><i class="fa-solid fa-lightbulb"></i></span><p><strong>Mẹo học nhanh:</strong> Nhấn nút loa để nghe mẫu, sau đó nhìn hướng dẫn khẩu hình và đọc theo 2–3 lần.</p></section>
+        <div id="ipa-sections"></div>
+        <p id="empty-state" class="empty-state" hidden>Không tìm thấy âm phù hợp. Hãy thử từ khóa khác.</p>
+    </main>
+    <button id="scroll-top" class="scroll-top" type="button" aria-label="Lên đầu trang"><i class="fa-solid fa-arrow-up"></i></button>
+    <script src="/assets/scripts/ipa.js"></script>
+</body>
+</html>
