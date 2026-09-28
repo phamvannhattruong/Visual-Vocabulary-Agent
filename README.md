@@ -168,18 +168,58 @@ HF_TOKEN=your_huggingface_token_optional
 
 ## Chạy ứng dụng
 
-### Khởi động backend
+### Cách 1: Khởi động nhanh bằng một câu lệnh
+
+Trên Windows (PowerShell / CMD):
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Trên macOS / Linux:
+
+```bash
+./.venv/bin/python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Cách 2: Kích hoạt môi trường ảo rồi khởi động
+
+**Bước 1:** Kích hoạt môi trường ảo:
+
+- Trên Windows (PowerShell):
+  ```powershell
+  .\.venv\Scripts\Activate.ps1
+  ```
+- Trên Windows (CMD):
+  ```cmd
+  .venv\Scripts\activate.bat
+  ```
+- Trên macOS / Linux:
+  ```bash
+  source .venv/bin/activate
+  ```
+
+**Bước 2:** Chạy server Uvicorn:
 
 ```bash
 uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Sau khi chạy, truy cập:
+*(Hoặc chạy trực tiếp file main)*:
 
-- http://127.0.0.1:8000/
-- http://127.0.0.1:8000/learn-image
-- http://127.0.0.1:8000/chat-bot
-- http://127.0.0.1:8000/ipa
+```bash
+python -m backend.app.main
+```
+
+### Truy cập ứng dụng
+
+Sau khi server khởi động thành công, truy cập các đường dẫn:
+
+- **Dashboard chính**: http://127.0.0.1:8000/
+- **Học từ vựng qua ảnh**: http://127.0.0.1:8000/learn-image
+- **Chatbot AI**: http://127.0.0.1:8000/chat-bot
+- **Bảng phiên âm IPA**: http://127.0.0.1:8000/ipa
+- **Tài liệu API (Swagger UI)**: http://127.0.0.1:8000/docs
 
 ## Quy trình hoạt động của hệ thống
 
