@@ -3,6 +3,9 @@ app/models/*.pt
 !app/models/.gitkeep
 __pycache__
 *.jpg
+*.task
+training/models/*.task
+!training/models/.gitkeep
 __init__.py
 .venv
 .idea
