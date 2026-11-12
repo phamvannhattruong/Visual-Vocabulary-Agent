@@ -321,7 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ messages: currentMessages })
+                body: JSON.stringify({ 
+                    messages: currentMessages,
+                    session_id: currentSessionId
+                })
             });
 
             if (!response.ok) {

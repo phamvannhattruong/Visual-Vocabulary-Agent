@@ -155,16 +155,32 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Cấu hình biến môi trường
+### 4. Cấu hình biến môi trường & Database
 
-Tạo file `.env` ở thư mục gốc và thêm các biến sau:
+Tạo file `.env` ở thư mục gốc và thêm các biến cấu hình:
 
 ```env
 API_KEY_GEMINI=your_gemini_api_key_here
 HF_TOKEN=your_huggingface_token_optional
+
+# Cấu hình kết nối CSDL (SQL Server / PostgreSQL / SQLite)
+# 1. SQL Server - Windows Authentication (Mặc định phổ biến với SSMS / SQLEXPRESS):
+DATABASE_URL=mssql+pyodbc://@localhost\SQLEXPRESS/english_learning_app?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes
+
+# 2. SQL Server - Tài khoản sa / SQL Authentication:
+# DATABASE_URL=mssql+pyodbc://sa:YourPassword@localhost:1433/english_learning_app?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes
+
+# 3. SQLite (Dự phòng cục bộ):
+# DATABASE_URL=sqlite:///./database/english_learning_app.db
 ```
 
-> `API_KEY_GEMINI` là bắt buộc nếu bạn dùng Gemini trong các agent. Một số module có thể cần `HF_TOKEN` tùy theo cách tích hợp mô hình local.
+> **Lưu ý:**
+> - Nếu bạn đã tạo database `english_learning_app` trong SQL Server, script tạo bảng đầy đủ nằm tại: `database/scripts/create_db.sql`.
+> - Để kiểm tra kết nối database và lưu thử log, hãy chạy:
+>   ```bash
+>   python database/scripts/test_connection.py
+>   ```
+> - Ứng dụng tích hợp cơ chế **tự động fallback về SQLite** nếu SQL Server chưa bật hoặc cấu hình chưa khớp, đảm bảo ứng dụng không bao giờ bị dừng đột ngột.
 
 ## Chạy ứng dụng
 
@@ -243,6 +259,14 @@ Sau khi server khởi động thành công, truy cập các đường dẫn:
   - Upload ảnh để phát hiện đối tượng và sinh bài học
 - `POST /api/v1/evaluate-pronunciation`
   - Upload file audio để đánh giá phát âm của người dùng
+
+### Database & Logs
+
+- `GET /api/v1/logs/status`: Kiểm tra trạng thái kết nối CSDL và các bảng đã tạo
+- `GET /api/v1/logs/chat`: Lấy danh sách lịch sử trò chuyện AI tutor
+- `GET /api/v1/logs/learning`: Lấy lịch sử phân tích từ vựng và bài học qua ảnh
+- `GET /api/v1/logs/pronunciation`: Lấy lịch sử và kết quả đánh giá phát âm
+- `GET /api/v1/logs/activities`: Lấy nhật ký hoạt động của hệ thống
 
 ## Lưu ý
 

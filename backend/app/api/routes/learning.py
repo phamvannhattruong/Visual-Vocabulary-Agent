@@ -1,10 +1,14 @@
 """Image-analysis and pronunciation API endpoints."""
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 
 from backend.app.core.settings import UPLOAD_DIR
+from backend.app.db.crud import (
+    background_save_image_log,
+    background_save_pronunciation_log,
+)
 from backend.app.utils.content import (
     extract_json_from_ai,
     extract_quiz,
@@ -42,7 +46,12 @@ def get_voice_agent() -> "VoiceAgent":
 
 
 @router.post("/analyze")
-async def analyze_image(file: UploadFile = File(...)):
+async def analyze_image(
+    background_tasks: BackgroundTasks,
+    http_request: Request,
+    file: UploadFile = File(...),
+    user_id: Optional[int] = Form(None),
+):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -57,10 +66,25 @@ async def analyze_image(file: UploadFile = File(...)):
     except Exception:
         lesson_text, quiz_data = "Sorry, I couldn't generate a lesson right now.", None
 
+    annotated_url = get_relative_url(annotated_path)
+    client_ip = http_request.client.host if (http_request and http_request.client) else None
+
+    # Persist analysis and lesson log in background
+    background_tasks.add_task(
+        background_save_image_log,
+        file_name=file.filename,
+        detected_labels=labels,
+        annotated_img_url=annotated_url,
+        lesson_context=lesson_text,
+        quiz_data=quiz_data,
+        user_id=user_id,
+        ip_address=client_ip,
+    )
+
     return {
         "file_name": file.filename,
         "detected_label": [str(label) for label in labels],
-        "annotated_img_url": get_relative_url(annotated_path),
+        "annotated_img_url": annotated_url,
         "lesson_context": lesson_text,
         "quiz": quiz_data,
         "success": True,
@@ -69,14 +93,33 @@ async def analyze_image(file: UploadFile = File(...)):
 
 @router.post("/evaluate-pronunciation")
 async def evaluate_pronunciation(
-    target_word: str = Form(...), audio_file: UploadFile = File(...)
+    background_tasks: BackgroundTasks,
+    http_request: Request,
+    target_word: str = Form(...),
+    audio_file: UploadFile = File(...),
+    user_id: Optional[int] = Form(None),
 ):
     try:
         evaluation_raw = get_voice_agent().check_speech(target_word, await audio_file.read())
-        return extract_json_from_ai(evaluation_raw) or {
+        eval_result = extract_json_from_ai(evaluation_raw) or {
             "feedback": evaluation_raw,
             "score": 0,
             "tip": "Please try again.",
         }
+
+        client_ip = http_request.client.host if (http_request and http_request.client) else None
+
+        # Persist pronunciation evaluation log in background
+        background_tasks.add_task(
+            background_save_pronunciation_log,
+            target_word=target_word,
+            score=eval_result.get("score"),
+            feedback=eval_result.get("feedback"),
+            tip=eval_result.get("tip"),
+            user_id=user_id,
+            ip_address=client_ip,
+        )
+
+        return eval_result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI Agent error: {exc}") from exc

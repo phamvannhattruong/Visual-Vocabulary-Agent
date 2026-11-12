@@ -1,4 +1,6 @@
 .env
+.env*
+!.env.example
 app/models/*.pt
 !app/models/.gitkeep
 __pycache__
@@ -9,3 +11,7 @@ training/models/*.task
 __init__.py
 .venv
 .idea
+*.db
+*.sqlite
+*.sqlite3
+*.log
