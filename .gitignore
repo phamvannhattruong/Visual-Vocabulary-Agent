@@ -15,3 +15,9 @@ __init__.py
 *.sqlite
 *.sqlite3
 *.log
+.agent
+.agents
+.codex
+.claude
+.gemini
+.impeccable
