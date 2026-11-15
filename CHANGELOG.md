@@ -57,3 +57,4 @@ Tất cả những thay đổi đáng chú ý của dự án **Visual Vocabulary
 
 [Chưa phát hành (Unreleased)]: https://github.com/your-username/Visual_Vocabulary_Agent/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/your-username/Visual_Vocabulary_Agent/releases/tag/v1.0.0
+

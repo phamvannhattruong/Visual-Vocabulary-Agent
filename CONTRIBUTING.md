@@ -193,3 +193,4 @@ perf(yolo): cache mô hình nơ-ron trong bộ nhớ sau lần nạp đầu tiê
 - **Đề xuất tính năng (Feature Request):** Hãy nêu rõ trường hợp sử dụng (Use case), giải thích vì sao tính năng này hữu ích cho người học tiếng Anh và phác thảo hướng tiếp cận dự kiến.
 
 *Chân thành cảm ơn sự đồng hành và đóng góp của bạn cho Visual Vocabulary Agent!*
+
