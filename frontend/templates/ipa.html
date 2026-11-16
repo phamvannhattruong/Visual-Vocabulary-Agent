@@ -3,49 +3,586 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bảng IPA | Visual Vocabulary Agent</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/assets/styles/ipa.css">
+    <title>Phòng Luyện IPA | Visual Vocabulary Agent</title>
+    
+    <!-- Distinctive Typographic Voice: Outfit (Display) + Lexend (Reading) + JetBrains Mono (Phonetics) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- External Stylesheet & Embedded Styles -->
+    <link rel="stylesheet" href="/assets/styles/ipa.css?v=2.3">
+    <style>
+/* Embedded High-Craft Studio Styles for Instant Render */
+:root {
+    --ink-primary:     #090D16;
+    --ink-body:        #263238;
+    --ink-muted:       #37474F;
+    --ink-caption:     #455A64;
+    --surface-page:    #F6F8FA;
+    --surface-card:    #FFFFFF;
+    --surface-subtle:  #EDF2F7;
+    --border-hairline: #CBD5E1;
+    --border-strong:   #090D16;
+    --accent-cobalt:   #1D4ED8;
+    --accent-cobalt-light: #EFF6FF;
+    --accent-terracotta: #9A3412;
+    --accent-terracotta-light: #FFF7ED;
+    --accent-sage:     #047857;
+    --accent-sage-light: #ECFDF5;
+    --accent-red:      #DC2626;
+    --font-display:    'Outfit', sans-serif;
+    --font-sans:       'Lexend', sans-serif;
+    --font-mono:       'JetBrains Mono', monospace;
+    --radius-sharp:    6px;
+    --radius-soft:     12px;
+    --radius-panel:    18px;
+    --shadow-flat:     0 1px 3px rgba(9, 13, 22, 0.05);
+    --shadow-elevated: 0 10px 25px -5px rgba(9, 13, 22, 0.08);
+}
+::selection { background-color: #DBEAFE; color: #1E3A8A; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--surface-page); }
+::-webkit-scrollbar-thumb { background: var(--border-hairline); border-radius: var(--radius-sharp); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-caption); }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background-color: var(--surface-page);
+    color: var(--ink-body);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--ink-primary);
+    letter-spacing: -0.025em;
+    font-weight: 700;
+}
+.studio-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--surface-card);
+    border-bottom: 1px solid var(--border-hairline);
+    box-shadow: var(--shadow-flat);
+}
+.studio-nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.studio-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--ink-primary);
+}
+.brand-monogram {
+    width: 36px;
+    height: 36px;
+    background-color: var(--ink-primary);
+    color: #FFFFFF;
+    border-radius: var(--radius-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+}
+.brand-text h1 {
+    font-size: 1.15rem;
+    line-height: 1.1;
+    font-weight: 800;
+}
+.brand-tagline {
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.nav-links-track {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.nav-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius-sharp);
+    color: var(--ink-muted);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+.nav-tab:hover {
+    color: var(--ink-primary);
+    background-color: var(--surface-subtle);
+}
+.nav-tab.active {
+    color: var(--accent-cobalt);
+    background-color: var(--accent-cobalt-light);
+}
+.nav-tab i {
+    font-size: 0.9rem;
+}
+main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem 1.5rem;
+}
+.hero {
+    background-color: var(--ink-primary);
+    color: #FFFFFF;
+    border-radius: var(--radius-panel);
+    padding: 2.75rem 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    box-shadow: var(--shadow-elevated);
+    margin-bottom: 2rem;
+}
+.hero h1 {
+    font-size: 2.25rem;
+    color: #FFFFFF;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+}
+.hero h1 span {
+    color: #93C5FD;
+}
+.hero-copy {
+    color: #E2E8F0;
+    font-size: 1.05rem;
+    max-width: 680px;
+    line-height: 1.6;
+}
+.hero-orbit {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+.orbit-pill {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-soft);
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #93C5FD;
+}
+.orbit-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-soft);
+    background-color: var(--accent-cobalt);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.search-box {
+    flex: 1;
+    max-width: 480px;
+    height: 48px;
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-soft);
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: var(--shadow-flat);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    color: var(--ink-caption);
+}
+.search-box:focus-within {
+    border-color: var(--accent-cobalt);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+.search-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    color: var(--ink-body);
+}
+.search-box input::placeholder {
+    color: var(--ink-caption);
+}
+.filters {
+    display: flex;
+    gap: 0.5rem;
+}
+.filter {
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-soft);
+    padding: 0.65rem 1.1rem;
+    font-family: var(--font-sans);
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+}
+.filter:hover {
+    color: var(--ink-primary);
+    background-color: var(--surface-subtle);
+}
+.filter.active {
+    background-color: var(--accent-cobalt);
+    color: #FFFFFF;
+    border-color: var(--accent-cobalt);
+}
+.filter span {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    padding: 0.1rem 0.4rem;
+    border-radius: 9999px;
+    background-color: var(--surface-subtle);
+    color: var(--ink-muted);
+}
+.filter.active span {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+}
+.tip {
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-soft);
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 2.25rem;
+    font-size: 0.88rem;
+    color: var(--ink-muted);
+    box-shadow: var(--shadow-flat);
+}
+.tip span {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sharp);
+    background-color: var(--accent-terracotta-light);
+    color: var(--accent-terracotta);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+.tip strong {
+    color: var(--ink-primary);
+    font-weight: 700;
+}
+.sound-section {
+    margin-bottom: 3rem;
+}
+.section-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.section-heading h2 {
+    font-size: 1.35rem;
+    color: var(--ink-primary);
+    font-weight: 800;
+}
+.section-heading p {
+    font-size: 0.88rem;
+    color: var(--ink-muted);
+    font-weight: 500;
+}
+.sound-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+}
+.sound-card {
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-soft);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: var(--shadow-flat);
+}
+.sound-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-cobalt);
+    box-shadow: var(--shadow-elevated);
+}
+.sound-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+.ipa-symbol {
+    font-family: var(--font-mono);
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    line-height: 1;
+}
+.sound-card.vowel .ipa-symbol {
+    color: var(--accent-cobalt);
+}
+.sound-card.consonant .ipa-symbol {
+    color: var(--accent-sage);
+}
+.sound-label {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    font-weight: 600;
+}
+.speaker {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: var(--radius-sharp);
+    background-color: var(--surface-subtle);
+    color: var(--ink-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+.speaker:hover, .speaker.playing {
+    background-color: var(--accent-cobalt);
+    color: #FFFFFF;
+}
+.example {
+    display: inline-block;
+    align-self: flex-start;
+    background-color: var(--surface-page);
+    border: 1px solid var(--border-hairline);
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sharp);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    font-family: var(--font-mono);
+    margin-bottom: 1rem;
+}
+.mouth-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+    background-color: var(--surface-page);
+    padding: 0.65rem;
+    border-radius: var(--radius-sharp);
+}
+.mouth {
+    width: 48px;
+    height: 32px;
+    border: 2px solid var(--ink-primary);
+    border-radius: 50%;
+    background-color: #FFFFFF;
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.mouth::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 13px;
+    height: 3px;
+    background-color: var(--ink-primary);
+    border-radius: 99px;
+}
+.mouth.open { border-radius: 35% 35% 50% 50%; height: 36px; }
+.mouth.open::before { top: 11px; height: 12px; border-radius: 50%; background-color: #FEE2E2; border: 1px solid var(--ink-primary); }
+.mouth.round { width: 36px; height: 36px; border-radius: 50%; }
+.mouth.round::before { left: 9px; right: 9px; top: 11px; height: 11px; border-radius: 50%; background-color: #FEE2E2; border: 1px solid var(--ink-primary); }
+.mouth.teeth::after { content: ""; position: absolute; top: 5px; left: 7px; right: 7px; height: 6px; background-color: #FFFFFF; border: 1px solid var(--ink-caption); border-radius: 2px; }
+.mouth.th::after { content: ""; position: absolute; width: 14px; height: 8px; left: 16px; top: 13px; border-radius: 50%; background-color: #FECACA; border: 1px solid var(--ink-primary); }
+.mouth-info { font-size: 0.8rem; color: var(--ink-muted); line-height: 1.4; }
+.mouth-info strong { display: block; color: var(--ink-primary); font-size: 0.82rem; font-weight: 700; }
+.instruction {
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    line-height: 1.45;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+.instruction i { color: var(--accent-cobalt); margin-top: 0.15rem; flex-shrink: 0; }
+.empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    background-color: var(--surface-card);
+    border: 1px dashed var(--border-hairline);
+    border-radius: var(--radius-soft);
+}
+.scroll-top {
+    position: fixed;
+    right: 2rem;
+    bottom: 2rem;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-soft);
+    background-color: var(--ink-primary);
+    color: #FFFFFF;
+    border: none;
+    box-shadow: var(--shadow-elevated);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 90;
+}
+.scroll-top.show { opacity: 1; pointer-events: auto; }
+.scroll-top:hover { background-color: var(--accent-cobalt); transform: translateY(-2px); }
+@media (max-width: 1100px) { .sound-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 820px) {
+    .hero { flex-direction: column; align-items: flex-start; padding: 2rem; }
+    .hero-orbit { display: none; }
+    .sound-grid { grid-template-columns: repeat(2, 1fr); }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .search-box { max-width: 100%; }
+}
+@media (max-width: 640px) {
+    .nav-links-track { display: none; }
+    .sound-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.75rem; }
+}
+    </style>
 </head>
 <body>
-    <header class="navbar">
-        <a class="brand" href="/" aria-label="Về trang chủ">
-            <span class="brand-mark"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-            <span><strong>VVA</strong><small>Visual Vocabulary</small></span>
-        </a>
-        <nav aria-label="Điều hướng chính">
-            <a href="/"><i class="fa-solid fa-house"></i> Trang chủ</a>
-            <a href="/learn-image"><i class="fa-solid fa-camera-retro"></i> Học theo ảnh</a>
-            <a class="active" href="/ipa"><i class="fa-solid fa-book-open"></i> Bảng IPA</a>
-            <a href="/chat-bot"><i class="fa-solid fa-robot"></i> Gia sư AI</a>
-        </nav>
+
+    <!-- Unified Studio Top Navigation -->
+    <header class="studio-nav">
+        <div class="studio-nav-inner">
+            <a href="/" class="studio-brand" title="Visual Vocabulary Agent - Bàn làm việc">
+                <div class="brand-monogram">VA</div>
+                <div class="brand-text">
+                    <h1>VVA Studio</h1>
+                    <span class="brand-tagline">Visual Vocabulary & Phonetics</span>
+                </div>
+            </a>
+
+            <nav class="nav-links-track" aria-label="Phân hệ chức năng">
+                <a href="/" class="nav-tab">
+                    <i class="fa-solid fa-shapes" aria-hidden="true"></i>
+                    <span>Bàn làm việc</span>
+                </a>
+                <a href="/learn-image" class="nav-tab">
+                    <i class="fa-solid fa-camera-retro" aria-hidden="true"></i>
+                    <span>Studio ảnh</span>
+                </a>
+                <a href="/ipa" class="nav-tab active">
+                    <i class="fa-solid fa-waveform-lines" aria-hidden="true"></i>
+                    <span>Phòng luyện IPA</span>
+                </a>
+                <a href="/chat-bot" class="nav-tab">
+                    <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
+                    <span>Gia sư AI</span>
+                </a>
+            </nav>
+        </div>
     </header>
 
     <main>
+        <!-- Hero Header -->
         <section class="hero">
             <div>
-                <p class="eyebrow"><i class="fa-solid fa-sparkles"></i> PHÁT ÂM TIẾNG ANH</p>
-                <h1>Tra cứu và học <span>44 âm IPA</span></h1>
-                <p class="hero-copy">Chọn một âm để nghe cách đọc, quan sát khẩu hình và luyện tập với từ ví dụ quen thuộc.</p>
+                <h1>Tra Cứu & Chuẩn Hóa <span>44 Âm Vị IPA</span></h1>
+                <p class="hero-copy">Phòng thực nghiệm âm thanh chuẩn quốc tế: lắng nghe cách phát âm mẫu, kiểm tra khẩu hình cơ miệng và luyện tập phản xạ cùng từ vựng trực quan.</p>
             </div>
-            <div class="hero-orbit" aria-hidden="true"><span>/θ/</span><span>/ʃ/</span><span>/æ/</span><i class="fa-solid fa-volume-high"></i></div>
+            <div class="hero-orbit" aria-hidden="true">
+                <div class="orbit-pill">/iː/</div>
+                <div class="orbit-pill">/θ/</div>
+                <div class="orbit-pill">/æ/</div>
+                <div class="orbit-icon"><i class="fa-solid fa-headphones"></i></div>
+            </div>
         </section>
 
+        <!-- Search & Filter Toolbar -->
         <section class="toolbar" aria-label="Tìm kiếm và lọc âm IPA">
-            <label class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="sound-search" type="search" placeholder="Tìm âm, ví dụ: /ʃ/, ship, vô thanh..." autocomplete="off"></label>
-            <div class="filters" role="tablist" aria-label="Loại âm">
+            <label class="search-box">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input id="sound-search" type="search" placeholder="Tìm kiếm âm vị, ví dụ: /ʃ/, ship, vô thanh, mở hàm..." autocomplete="off">
+            </label>
+            <div class="filters" role="tablist" aria-label="Phân loại âm vị">
                 <button class="filter active" data-filter="all" type="button">Tất cả <span>44</span></button>
                 <button class="filter" data-filter="vowel" type="button">Nguyên âm <span>20</span></button>
                 <button class="filter" data-filter="consonant" type="button">Phụ âm <span>24</span></button>
             </div>
         </section>
 
-        <section class="tip"><span><i class="fa-solid fa-lightbulb"></i></span><p><strong>Mẹo học nhanh:</strong> Nhấn nút loa để nghe mẫu, sau đó nhìn hướng dẫn khẩu hình và đọc theo 2–3 lần.</p></section>
+        <!-- Practical Tip Strip -->
+        <section class="tip">
+            <span><i class="fa-solid fa-lightbulb" aria-hidden="true"></i></span>
+            <p><strong>Mẹo luyện phản xạ âm:</strong> Nhấn nút loa để nghe mẫu phát âm người bản xứ, quan sát sơ đồ khẩu hình cơ mặt và phát âm lại 2-3 lần để ghi nhớ cơ vận động.</p>
+        </section>
+
+        <!-- IPA Sound Cards Grid Container -->
         <div id="ipa-sections"></div>
-        <p id="empty-state" class="empty-state" hidden>Không tìm thấy âm phù hợp. Hãy thử từ khóa khác.</p>
+        
+        <!-- Empty State Filter Result -->
+        <p id="empty-state" class="empty-state" hidden>Không tìm thấy âm vị phù hợp với từ khóa tra cứu. Vui lòng thử lại.</p>
     </main>
-    <button id="scroll-top" class="scroll-top" type="button" aria-label="Lên đầu trang"><i class="fa-solid fa-arrow-up"></i></button>
+
+    <!-- Scroll to Top Button -->
+    <button id="scroll-top" class="scroll-top" type="button" aria-label="Lên đầu trang">
+        <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+    </button>
+
     <script src="/assets/scripts/ipa.js"></script>
 </body>
 </html>
