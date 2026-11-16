@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{% block title %}Visual Vocabulary Agent - Học từ vựng & phát âm trực quan{% endblock %}</title>
+
+    <!-- Distinctive Typographic Voice: Outfit (Display) + Lexend (Reading) + JetBrains Mono (Phonetics) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome 6 (No emojis for system icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Design System Tokens & Component Library -->
+    <link rel="stylesheet" href="/assets/styles/tokens.css">
+    <link rel="stylesheet" href="/assets/styles/components.css">
+
+    <!-- Screen-specific Extra CSS -->
+    {% block extra_css %}{% endblock %}
+
+    <style>
+        /* Top Navigation Bar Layout */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: var(--z-sticky);
+            background-color: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            box-shadow: var(--shadow-xs);
+        }
+
+        .header-inner {
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-4);
+        }
+
+        .brand-link {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            text-decoration: none;
+            color: var(--color-text-primary);
+        }
+
+        .brand-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700));
+            color: var(--color-on-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .brand-meta {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-weight: var(--font-extrabold);
+            font-size: var(--text-lg);
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            color: var(--color-primary-900);
+        }
+
+        .brand-sub {
+            font-size: var(--text-xs);
+            color: var(--color-text-tertiary);
+            font-weight: var(--font-medium);
+        }
+
+        /* Desktop Nav Menu */
+        .desktop-nav {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .nav-item {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            transition: all var(--transition-fast);
+        }
+
+        .nav-item:hover {
+            color: var(--color-primary-600);
+            background-color: var(--color-bg-subtle);
+        }
+
+        .nav-item.active {
+            color: var(--color-primary-600);
+            background-color: var(--color-primary-50);
+            font-weight: var(--font-semibold);
+        }
+
+        /* Header Right Controls */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        /* Bottom Navigation for Mobile (< 768px) */
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background-color: var(--color-surface);
+            border-top: 1px solid var(--color-border);
+            z-index: var(--z-sticky);
+            box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.05);
+            align-items: center;
+            justify-content: space-around;
+            padding-inline: var(--space-2);
+        }
+
+        .mobile-nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: var(--color-text-tertiary);
+            text-decoration: none;
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            flex: 1;
+            height: 100%;
+            transition: color var(--transition-fast);
+        }
+
+        .mobile-nav-link i {
+            font-size: 1.15rem;
+        }
+
+        .mobile-nav-link.active {
+            color: var(--color-primary-600);
+            font-weight: var(--font-semibold);
+        }
+
+        @media (max-width: 767px) {
+            .desktop-nav { display: none; }
+            .mobile-bottom-nav { display: flex; }
+            body { padding-bottom: 72px; /* Dành chỗ cho mobile bottom bar */ }
+        }
+
+        /* Toast Container */
+        .toast-viewport {
+            position: fixed;
+            bottom: var(--space-6);
+            right: var(--space-6);
+            z-index: var(--z-toast);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            pointer-events: none;
+        }
+
+        @media (max-width: 767px) {
+            .toast-viewport {
+                bottom: 80px;
+                right: var(--space-4);
+                left: var(--space-4);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Accessible Skip to Content Link -->
+    <a href="#main-content" class="sr-only focus:not-sr-only" style="position:absolute;top:-40px;left:0;background:var(--color-primary-600);color:#fff;padding:8px;z-index:9999;transition:top 0.2s;" onfocus="this.style.top='0'" onblur="this.style.top='-40px'">Chuyển nhanh tới nội dung chính</a>
+
+    <!-- Top Sticky Header -->
+    <header class="app-header">
+        <div class="container header-inner">
+            <a href="/" class="brand-link" title="Visual Vocabulary Agent - Trang chủ">
+                <div class="brand-badge">
+                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                </div>
+                <div class="brand-meta">
+                    <span class="brand-title">VVA</span>
+                    <span class="brand-sub">Visual Vocabulary</span>
+                </div>
+            </a>
+
+            <!-- Desktop Navigation -->
+            <nav class="desktop-nav" aria-label="Điều hướng chính">
+                <a href="/" class="nav-item {% block nav_home %}{% endblock %}">
+                    <i class="fa-solid fa-house" aria-hidden="true"></i>
+                    <span>Tổng quan</span>
+                </a>
+                <a href="/learn-image" class="nav-item {% block nav_image %}{% endblock %}">
+                    <i class="fa-solid fa-camera-retro" aria-hidden="true"></i>
+                    <span>Học qua ảnh</span>
+                </a>
+                <a href="/ipa" class="nav-item {% block nav_ipa %}{% endblock %}">
+                    <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+                    <span>Bảng âm IPA</span>
+                </a>
+                <a href="/chat-bot" class="nav-item {% block nav_chat %}{% endblock %}">
+                    <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
+                    <span>Gia sư AI</span>
+                </a>
+            </nav>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <a href="/learn-image" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                    <span>Học ảnh mới</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Injection -->
+    <main class="app-main" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Mobile Bottom Navigation (< 768px) -->
+    <nav class="mobile-bottom-nav" aria-label="Thanh điều hướng di động">
+        <a href="/" class="mobile-nav-link {% block mob_nav_home %}{% endblock %}">
+            <i class="fa-solid fa-house" aria-hidden="true"></i>
+            <span>Trang chủ</span>
+        </a>
+        <a href="/learn-image" class="mobile-nav-link {% block mob_nav_image %}{% endblock %}">
+            <i class="fa-solid fa-camera-retro" aria-hidden="true"></i>
+            <span>Học ảnh</span>
+        </a>
+        <a href="/ipa" class="mobile-nav-link {% block mob_nav_ipa %}{% endblock %}">
+            <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+            <span>Âm IPA</span>
+        </a>
+        <a href="/chat-bot" class="mobile-nav-link {% block mob_nav_chat %}{% endblock %}">
+            <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
+            <span>Gia sư</span>
+        </a>
+    </nav>
+
+    <!-- Global Toast Viewport -->
+    <div class="toast-viewport" id="toast-viewport" aria-live="polite"></div>
+
+    <!-- Scripts -->
+    <script>
+        // Global Utility: Toast Notifications
+        window.showToast = function(message, type = 'info') {
+            const viewport = document.getElementById('toast-viewport');
+            const toast = document.createElement('div');
+            toast.className = `card toast-item badge-${type === 'success' ? 'emerald' : type === 'error' ? 'red' : 'indigo'}`;
+            toast.style.cssText = 'padding: 12px 18px; pointer-events: auto; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-md); animation: fadeIn 0.25s ease;';
+            
+            const icon = document.createElement('i');
+            icon.className = type === 'success' ? 'fa-solid fa-circle-check' : type === 'error' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-info';
+            toast.appendChild(icon);
+
+            const text = document.createElement('span');
+            text.textContent = message;
+            text.style.fontWeight = '500';
+            toast.appendChild(text);
+
+            viewport.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        };
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
