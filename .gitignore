@@ -8,7 +8,6 @@ __pycache__
 *.task
 training/models/*.task
 !training/models/.gitkeep
-__init__.py
 .venv
 .idea
 *.db
