@@ -3,6 +3,20 @@ from ultralytics import YOLO
 from pathlib import Path
 from backend.app.core.settings import MODEL_DIR
 
+try:
+    import spaces
+except ImportError:
+    # Fallback mock for non-ZeroGPU environments (local / testing)
+    class _SpacesMock:
+        @staticmethod
+        def GPU(func=None, **kwargs):
+            if func is not None:
+                return func
+            def decorator(fn):
+                return fn
+            return decorator
+    spaces = _SpacesMock()
+
 class DetectAgent:
     def __init__(self, model_name = "yolo11n.pt"):
         self.model_path = MODEL_DIR / model_name
@@ -10,6 +24,7 @@ class DetectAgent:
         # If model doesn't exist, YOLO(str(path)) will download it to that path
         self.model = YOLO(str(self.model_path))
 
+    @spaces.GPU
     def detect_objects(self, image_path):
         img = cv2.imread(image_path)
         if img is None:
