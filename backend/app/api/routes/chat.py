@@ -1,5 +1,6 @@
 """Conversational tutor API endpoints."""
 import json
+import os
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -26,11 +27,8 @@ def get_chat_agent() -> "ChatAgent":
     from backend.app.services.agents.chat import ChatAgent
 
     return ChatAgent(
-        repo_id="DeeplearningVN/Chatbot_English",
-        filename="meta-llama-3.1-8b.Q4_K_M.gguf",
+        space_id=os.getenv("HF_CHAT_SPACE_ID", "DeeplearningVN/VVA"),
         system_prompt=SYSTEM_PROMPT,
-        n_ctx=2048,
-        n_gpu_layers=10,
     )
 
 
@@ -110,3 +108,49 @@ async def chat_stream_endpoint(
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Streaming failed: {exc}") from exc
+
+
+@router.post("/chat/hf", response_model=ChatResponse)
+@router.post("/chat-hf", response_model=ChatResponse)
+async def chat_with_hf_space(
+    request: ChatRequest,
+    background_tasks: BackgroundTasks,
+    http_request: Request,
+):
+    """
+    Conversational tutor endpoint powered by Hugging Face Space (DeeplearningVN/chatbot-english).
+    Uses gradio_client to interact with the remote chatbot space.
+    """
+    user_message = _extract_last_user_message(request.messages)
+    if not user_message:
+        raise HTTPException(status_code=400, detail="User message cannot be empty")
+
+    # Extract history excluding the latest user message
+    history = [m for m in request.messages if m.get("content") != user_message]
+
+    try:
+        from backend.app.services.agents.hf_space_client import call_hf_chatbot
+
+        reply = call_hf_chatbot(
+            message=user_message,
+            history=history,
+            system_message=SYSTEM_PROMPT,
+        )
+        client_ip = http_request.client.host if http_request.client else None
+
+        # Asynchronously persist chat log to database
+        background_tasks.add_task(
+            background_save_chat_log,
+            session_id=request.session_id,
+            user_message=user_message,
+            bot_response=reply,
+            user_id=request.user_id,
+            ip_address=client_ip,
+        )
+        return ChatResponse(reply=reply)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hugging Face Space Chatbot service error: {exc}",
+        ) from exc
+
