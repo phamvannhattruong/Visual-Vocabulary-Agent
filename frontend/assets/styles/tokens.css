@@ -1,0 +1,151 @@
+/**
+ * Visual Vocabulary Agent (VVA) - Design Tokens
+ * Version: 2.0.0
+ * Standard: WCAG AA Compliant, 8pt Grid System
+ */
+
+:root {
+    /* ==========================================================================
+       1. COLOR SYSTEM (WCAG AA Compliant, 60-30-10 Rule)
+       ========================================================================== */
+
+    /* Primary Brand - Education Indigo */
+    --color-primary-50:  #EEF2FF;
+    --color-primary-100: #E0E7FF;
+    --color-primary-200: #C7D2FE;
+    --color-primary-300: #A5B4FC;
+    --color-primary-400: #818CF8;
+    --color-primary-500: #6366F1;
+    --color-primary-600: #4F46E5; /* Main Brand */
+    --color-primary-700: #4338CA; /* Hover */
+    --color-primary-800: #3730A3;
+    --color-primary-900: #312E81;
+    --color-on-primary:  #FFFFFF;
+
+    /* Secondary / Success Accent - Growth Emerald */
+    --color-accent-50:  #ECFDF5;
+    --color-accent-100: #D1FAE5;
+    --color-accent-500: #10B981;
+    --color-accent-600: #059669; /* Main Accent */
+    --color-accent-700: #047857;
+    --color-on-accent:  #FFFFFF;
+
+    /* Phonetics & IPA Accent - Violet */
+    --color-ipa-50:   #F5F3FF;
+    --color-ipa-100:  #EDE9FE;
+    --color-ipa-500:  #8B5CF6;
+    --color-ipa-600:  #7C3AED;
+    --color-ipa-700:  #6D28D9;
+    --color-on-ipa:   #FFFFFF;
+
+    /* Functional & Semantic States */
+    --color-warning-50:  #FFFBEB;
+    --color-warning-500: #F59E0B;
+    --color-warning-600: #D97706;
+    --color-warning-text: #92400E;
+
+    --color-error-50:    #FEF2F2;
+    --color-error-500:   #EF4444;
+    --color-error-600:   #DC2626;
+    --color-error-text:  #991B1B;
+
+    --color-info-50:     #F0F9FF;
+    --color-info-600:    #0284C7;
+    --color-info-text:   #075985;
+
+    /* Neutrals & Surfaces (Anti-glare, eye-friendly) */
+    --color-bg-app:      #F8FAFC; /* Slate-50: dịu mắt hơn trắng tinh */
+    --color-bg-subtle:   #F1F5F9; /* Slate-100 */
+    --color-surface:     #FFFFFF; /* Surface Card */
+    --color-surface-hover: #F8FAFC;
+    --color-border:      #E2E8F0; /* Slate-200 */
+    --color-border-hover: #CBD5E1; /* Slate-300 */
+    --color-border-focus: #4F46E5;
+
+    /* Text & Typography Hierarchy */
+    --color-text-primary:   #0F172A; /* Slate-900 (Contrast ~15.8:1) */
+    --color-text-secondary: #475569; /* Slate-600 (Contrast ~5.9:1) */
+    --color-text-tertiary:  #64748B; /* Slate-500 */
+    --color-text-disabled:  #94A3B8; /* Slate-400 */
+    --color-text-inverse:   #FFFFFF;
+
+    /* ==========================================================================
+       2. TYPOGRAPHY (Outfit + Lexend + JetBrains Mono)
+       ========================================================================== */
+    --font-display: 'Outfit', sans-serif;
+    --font-sans: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-ipa:  'JetBrains Mono', monospace;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* Font Sizes & Line Heights (Modular Scale 1.25) */
+    --text-xs:   0.75rem;   /* 12px */
+    --text-sm:   0.875rem;  /* 14px */
+    --text-base: 1rem;      /* 16px */
+    --text-lg:   1.125rem;  /* 18px */
+    --text-xl:   1.25rem;   /* 20px */
+    --text-2xl:  1.5rem;    /* 24px */
+    --text-3xl:  1.875rem;  /* 30px */
+    --text-4xl:  2.25rem;   /* 36px */
+
+    --leading-tight:  1.2;
+    --leading-snug:   1.35;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+
+    --font-regular:  400;
+    --font-medium:   500;
+    --font-semibold: 600;
+    --font-bold:     700;
+    --font-extrabold: 800;
+
+    /* ==========================================================================
+       3. SPACING SYSTEM (8pt Grid System)
+       ========================================================================== */
+    --space-0: 0px;
+    --space-1: 0.25rem; /* 4px */
+    --space-2: 0.5rem;  /* 8px */
+    --space-3: 0.75rem; /* 12px */
+    --space-4: 1rem;    /* 16px */
+    --space-5: 1.25rem; /* 20px */
+    --space-6: 1.5rem;  /* 24px */
+    --space-8: 2rem;    /* 32px */
+    --space-10: 2.5rem; /* 40px */
+    --space-12: 3rem;   /* 48px */
+    --space-16: 4rem;   /* 64px */
+
+    /* ==========================================================================
+       4. BORDER RADIUS & ELEVATIONS
+       ========================================================================== */
+    --radius-sm:   6px;
+    --radius-md:   10px;
+    --radius-lg:   16px; /* Signature Card Radius */
+    --radius-xl:   24px; /* Modal & Hero Radius */
+    --radius-full: 9999px;
+
+    /* Diffuse Layered Shadows */
+    --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+    --shadow-sm: 0 2px 4px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 6px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 16px 32px -4px rgba(15, 23, 42, 0.10), 0 6px 12px -3px rgba(15, 23, 42, 0.06);
+    --shadow-glow-primary: 0 8px 24px -4px rgba(79, 70, 229, 0.35);
+    --shadow-glow-accent:  0 8px 24px -4px rgba(5, 150, 105, 0.35);
+
+    /* ==========================================================================
+       5. TRANSITIONS & INTERACTIONS
+       ========================================================================== */
+    --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Focus Visible Ring */
+    --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.35);
+
+    /* Z-Index Hierarchy */
+    --z-base:     1;
+    --z-sticky:   100;
+    --z-dropdown: 200;
+    --z-backdrop: 500;
+    --z-modal:    600;
+    --z-toast:    1000;
+}
+
