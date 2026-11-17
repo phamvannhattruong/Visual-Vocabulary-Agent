@@ -1,4 +1,5 @@
 """Hugging Face Space Gradio Client integration for conversational tutoring."""
+import concurrent.futures
 import os
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -14,6 +15,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "You are an English-learning tutor. Answer questions about English "
     "vocabulary, grammar, translation, and pronunciation clearly and politely."
 )
+DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HF_CHAT_TIMEOUT", "6.0"))
 
 _cached_client: Optional[Client] = None
 _cached_space_id: Optional[str] = None
@@ -143,25 +145,11 @@ def call_hf_chatbot(
     top_p: float = 0.9,
     space_id: str = DEFAULT_SPACE_ID,
     client: Optional[Client] = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> str:
     """
     Send a user question and chat history to the Hugging Face Space chatbot and return its response.
-
-    Args:
-        message: The user's input question/prompt.
-        history: Previous chat history messages.
-        system_message: System prompt instructions for the tutor.
-        max_tokens: Maximum token generation limit.
-        temperature: Sampling temperature (higher = more creative).
-        top_p: Nucleus sampling probability threshold.
-        space_id: Target Space repository ID.
-        client: Optional pre-configured Gradio Client instance.
-
-    Returns:
-        str: Chatbot answer text.
-
-    Raises:
-        RuntimeError: When connection or prediction fails.
+    Enforces a strict timeout to prevent blocking the application when Space is sleeping.
     """
     if not message or not message.strip():
         return ""
@@ -169,36 +157,36 @@ def call_hf_chatbot(
     active_client = client or get_hf_client(space_id=space_id)
     clean_history = normalize_history(history)
 
-    # Strategy 1: Attempt standard Gradio ChatInterface /respond endpoint
-    try:
-        raw_result = active_client.predict(
-            message=message.strip(),
-            system_message=system_message,
-            max_tokens=float(max_tokens),
-            temperature=float(temperature),
-            top_p=float(top_p),
-            api_name="/respond",
-        )
-        return extract_reply_text(raw_result)
-    except Exception as err_respond:
-        logger.debug(f"/respond endpoint call failed ({err_respond}), attempting fallback endpoints...")
+    def _execute_predict() -> str:
+        # Strategy 1: Attempt standard Gradio ChatInterface /respond endpoint
+        try:
+            raw_result = active_client.predict(
+                message=message.strip(),
+                system_message=system_message,
+                max_tokens=float(max_tokens),
+                temperature=float(temperature),
+                top_p=float(top_p),
+                api_name="/respond",
+            )
+            return extract_reply_text(raw_result)
+        except Exception as err_respond:
+            logger.debug(f"/respond endpoint call failed ({err_respond}), attempting /chat...")
 
-    # Strategy 2: Attempt /chat endpoint
-    try:
-        raw_result = active_client.predict(
-            message=message.strip(),
-            system_message=system_message,
-            max_tokens=float(max_tokens),
-            temperature=float(temperature),
-            top_p=float(top_p),
-            api_name="/chat",
-        )
-        return extract_reply_text(raw_result)
-    except Exception as err_chat:
-        logger.debug(f"/chat endpoint call failed ({err_chat}), attempting positional call...")
+        # Strategy 2: Attempt /chat endpoint
+        try:
+            raw_result = active_client.predict(
+                message=message.strip(),
+                system_message=system_message,
+                max_tokens=float(max_tokens),
+                temperature=float(temperature),
+                top_p=float(top_p),
+                api_name="/chat",
+            )
+            return extract_reply_text(raw_result)
+        except Exception as err_chat:
+            logger.debug(f"/chat endpoint call failed ({err_chat}), attempting positional call...")
 
-    # Strategy 3: Attempt positional call with history parameter
-    try:
+        # Strategy 3: Attempt positional call with history parameter
         raw_result = active_client.predict(
             message.strip(),
             clean_history,
@@ -208,12 +196,23 @@ def call_hf_chatbot(
             float(top_p),
         )
         return extract_reply_text(raw_result)
-    except Exception as err_pos:
-        raise RuntimeError(
-            f"Error invoking chatbot on Hugging Face Space '{space_id}'. "
-            f"Please verify Space runtime status at https://huggingface.co/spaces/{space_id}. "
-            f"Details: {err_pos}"
-        ) from err_pos
+
+    # Execute prediction with timeout safeguard
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_execute_predict)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError as timeout_err:
+            logger.warning(
+                f"Hugging Face Space '{space_id}' timed out after {timeout}s (likely cold sleeping or queue congested)."
+            )
+            raise TimeoutError(
+                f"Hugging Face Space '{space_id}' request timed out after {timeout} seconds."
+            ) from timeout_err
+        except Exception as err:
+            raise RuntimeError(
+                f"Error invoking chatbot on Hugging Face Space '{space_id}': {err}"
+            ) from err
 
 
 class HFSpaceChatAgent:
