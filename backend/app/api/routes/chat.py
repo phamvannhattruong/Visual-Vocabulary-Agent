@@ -1,5 +1,7 @@
 """Conversational tutor API endpoints."""
+import asyncio
 import json
+import logging
 import os
 from functools import lru_cache
 from typing import TYPE_CHECKING
@@ -10,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from backend.app.schemas import ChatRequest, ChatResponse
 from backend.app.db.crud import background_save_chat_log
 
+logger = logging.getLogger("backend.app.api.routes.chat")
 router = APIRouter(tags=["chat"])
 
 if TYPE_CHECKING:
@@ -57,7 +60,11 @@ async def chat_with_agent(
 ):
     user_message = _extract_last_user_message(request.messages)
     try:
-        reply = get_chat_agent().generate_response(with_system_prompt(request.messages))
+        # Non-blocking async thread execution to avoid freezing the FastAPI event loop
+        reply = await asyncio.to_thread(
+            get_chat_agent().generate_response,
+            with_system_prompt(request.messages),
+        )
         client_ip = http_request.client.host if http_request.client else None
 
         # Asynchronously persist chat log to database
@@ -71,12 +78,14 @@ async def chat_with_agent(
         )
         return ChatResponse(reply=reply)
     except Exception as exc:
+        logger.error(f"Chatbot failed to generate response: {exc}")
         raise HTTPException(status_code=500, detail=f"Chatbot failed to generate response: {exc}") from exc
 
 
 @router.post("/chat/stream")
 async def chat_stream_endpoint(
     request: ChatRequest,
+    background_tasks: BackgroundTasks,
     http_request: Request,
 ):
     user_message = _extract_last_user_message(request.messages)
@@ -87,19 +96,26 @@ async def chat_stream_endpoint(
             collected_chunks = []
             try:
                 for chunk in get_chat_agent().stream_response(with_system_prompt(request.messages)):
-                    collected_chunks.append(chunk)
-                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+                    if chunk:
+                        collected_chunks.append(chunk)
+                        yield f"data: {json.dumps({'content': chunk})}\n\n"
+            except Exception as stream_err:
+                logger.error(f"Error during stream generation: {stream_err}")
+                yield f"data: {json.dumps({'content': ' ...'})}\n\n"
             finally:
-                # Save full response when stream finishes
+                yield "data: [DONE]\n\n"
                 full_reply = "".join(collected_chunks)
-                background_save_chat_log(
-                    session_id=request.session_id,
-                    user_message=user_message,
-                    bot_response=full_reply,
-                    user_id=request.user_id,
-                    ip_address=client_ip,
-                )
-            yield "data: [DONE]\n\n"
+                if full_reply:
+                    try:
+                        background_save_chat_log(
+                            session_id=request.session_id,
+                            user_message=user_message,
+                            bot_response=full_reply,
+                            user_id=request.user_id,
+                            ip_address=client_ip,
+                        )
+                    except Exception as db_err:
+                        logger.warning(f"Failed to save chat stream log to DB: {db_err}")
 
         return StreamingResponse(
             event_stream(),
@@ -107,6 +123,7 @@ async def chat_stream_endpoint(
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
         )
     except Exception as exc:
+        logger.error(f"Streaming failed: {exc}")
         raise HTTPException(status_code=500, detail=f"Streaming failed: {exc}") from exc
 
 
@@ -131,7 +148,8 @@ async def chat_with_hf_space(
     try:
         from backend.app.services.agents.hf_space_client import call_hf_chatbot
 
-        reply = call_hf_chatbot(
+        reply = await asyncio.to_thread(
+            call_hf_chatbot,
             message=user_message,
             history=history,
             system_message=SYSTEM_PROMPT,
@@ -149,6 +167,7 @@ async def chat_with_hf_space(
         )
         return ChatResponse(reply=reply)
     except Exception as exc:
+        logger.error(f"Hugging Face Space Chatbot service error: {exc}")
         raise HTTPException(
             status_code=502,
             detail=f"Hugging Face Space Chatbot service error: {exc}",
