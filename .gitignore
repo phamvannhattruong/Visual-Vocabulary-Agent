@@ -8,13 +8,13 @@ __pycache__
 *.task
 training/models/*.task
 !training/models/.gitkeep
-__init__.py
 .venv
 .idea
 *.db
 *.sqlite
 *.sqlite3
 *.log
+backend/resources/models/Ultralytics/
 .agent
 .agents
 .codex
