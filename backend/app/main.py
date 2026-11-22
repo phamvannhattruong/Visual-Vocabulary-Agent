@@ -1,10 +1,10 @@
+"""FastAPI main application entrypoint."""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
-from backend.app.api.routes import chat, learning, logs
-from backend.app.core.settings import ASSETS_DIR, TEMPLATES_DIR, UPLOAD_DIR
+from backend.app.api.router import register_routers
+from backend.app.core.settings import ASSETS_DIR, UPLOAD_DIR
 from backend.app.db.session import init_db
 
 
@@ -15,38 +15,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Visual Vocabulary Agent API", lifespan=lifespan)
+app = FastAPI(
+    title="Visual Vocabulary Agent API",
+    description="Multi-Agent AI and Computer Vision English Learning Platform",
+    version="2.0.0",
+    lifespan=lifespan,
+)
 
+# Mount static asset and upload directories
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
-# Configure templates
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-# Include API routes
-app.include_router(learning.router, prefix="/api/v1")
-app.include_router(chat.router, prefix="/api/v1")
-app.include_router(logs.router, prefix="/api/v1")
-
-
-@app.get("/")
-async def root(request: Request):
-    return templates.TemplateResponse(request=request, name="dashboard.html")
-
-
-@app.get('/learn-image')
-async def learn_image(request: Request):
-    return templates.TemplateResponse(request=request, name="imagelearn.html")
-
-
-@app.get('/chat-bot')
-async def chat_bot(request: Request):
-    return templates.TemplateResponse(request=request, name="chatbot.html")
-
-
-@app.get('/ipa')
-async def ipa_chart(request: Request):
-    return templates.TemplateResponse(request=request, name="ipa.html")
+# Register all routes (REST APIs + SSR Web Pages)
+register_routers(app)
 
 
 if __name__ == "__main__":
