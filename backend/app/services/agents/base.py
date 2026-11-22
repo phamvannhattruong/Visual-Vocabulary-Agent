@@ -1,17 +1,16 @@
 import os
-from dotenv import load_dotenv
 from google import genai
-# Import thêm module types từ SDK mới để chuẩn hóa dữ liệu gửi đi
-from google.genai import types 
+from google.genai import types
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-load_dotenv()
+from backend.app.core.settings import API_KEY_GEMINI, DEFAULT_GEMINI_MODEL, HF_TOKEN
+
 
 class Agent:
-    def __init__(self, model: str = "gemini-2.5-flash"):
-        self.api_key = os.getenv("API_KEY_GEMINI")
+    def __init__(self, model: str = DEFAULT_GEMINI_MODEL):
+        self.api_key = API_KEY_GEMINI or os.getenv("API_KEY_GEMINI")
         self.model_name = model
-        self.hf_token = os.getenv("HF_TOKEN") 
+        self.hf_token = HF_TOKEN or os.getenv("HF_TOKEN")
         self.model_id = ""
 
         if not self.api_key:
