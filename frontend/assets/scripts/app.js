@@ -13,6 +13,8 @@ const loader = document.getElementById('loader');
 const resultsSection = document.getElementById('results-section');
 const annotatedImage = document.getElementById('annotated-image');
 const detectedTags = document.getElementById('detected-tags');
+const detectedCardsGrid = document.getElementById('detected-cards-grid');
+const objectsCountBadge = document.getElementById('objects-count-badge');
 const lessonContent = document.getElementById('lesson-content');
 const quizContainer = document.getElementById('quiz-container');
 const quizQuestion = document.getElementById('quiz-question');
@@ -154,23 +156,77 @@ function renderResults(data) {
     resultsSection.classList.remove('hidden');
     annotatedImage.src = data.annotated_img_url + '?t=' + new Date().getTime();
     
-    // Render Tags
+    // 1. Render Flashcards from detected objects (Phase 1 Vision Upgrade)
+    if (detectedCardsGrid) {
+        detectedCardsGrid.innerHTML = '';
+        const objects = data.detected_objects || [];
+        if (objectsCountBadge) {
+            objectsCountBadge.textContent = `${objects.length} đồ vật`;
+        }
+
+        if (objects.length > 0) {
+            objects.forEach(obj => {
+                const card = document.createElement('div');
+                card.className = 'vocab-flashcard';
+                card.dataset.label = obj.label;
+                const confPercent = obj.confidence_percent || Math.round((obj.confidence || 0) * 100);
+                const thumbHtml = obj.crop_url 
+                    ? `<img class="card-thumb-img" src="${obj.crop_url}?t=${new Date().getTime()}" alt="${obj.label}" loading="lazy">` 
+                    : `<div class="card-thumb-placeholder"><i class="fa-solid fa-image"></i></div>`;
+
+                card.innerHTML = `
+                    <div class="card-thumb-wrap">
+                        ${thumbHtml}
+                        <span class="card-conf-badge">${confPercent}%</span>
+                    </div>
+                    <div class="card-info">
+                        <h4 class="card-word">${obj.label}</h4>
+                        <div class="card-btn-row">
+                            <button type="button" class="card-action-btn speak-btn" onclick="speak('${obj.label}')" title="Nghe phát âm" aria-label="Nghe ${obj.label}">
+                                <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+                                <span>Nghe</span>
+                            </button>
+                            <button type="button" class="card-action-btn practice-btn" onclick="openPractice('${obj.label}')" title="Luyện nói" aria-label="Luyện nói ${obj.label}">
+                                <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+                                <span>Luyện</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                detectedCardsGrid.appendChild(card);
+            });
+        } else {
+            detectedCardsGrid.innerHTML = `
+                <p style="grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-caption); text-align: center; padding: 1rem;">
+                    Không tìm thấy vật thể riêng biệt nào. Hãy thử chụp ảnh gần hơn và đủ sáng.
+                </p>
+            `;
+        }
+    }
+
+    // 2. Render Quick Tags
     detectedTags.innerHTML = '';
-    data.detected_label.forEach(label => {
+    const labels = data.detected_label || [];
+    labels.forEach(label => {
         const tag = document.createElement('div');
-        tag.className = 'tag';
+        tag.className = 'tag-btn';
         tag.innerHTML = `
-            ${label}
-            <button onclick="speak('${label}')" title="Listen"><i class="fas fa-volume-up"></i></button>
-            <button class="practice-btn" onclick="openPractice('${label}')" title="Practice"><i class="fas fa-microphone"></i></button>
+            <span>${label}</span>
+            <button type="button" class="tag-action-icon" onclick="event.stopPropagation(); speak('${label}')" title="Nghe ${label}" aria-label="Nghe ${label}">
+                <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="tag-action-icon" onclick="event.stopPropagation(); openPractice('${label}')" title="Luyện nói ${label}" aria-label="Luyện nói ${label}">
+                <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+            </button>
         `;
+        tag.addEventListener('click', () => speak(label));
         detectedTags.appendChild(tag);
     });
 
-    // Render Lesson
+    // 3. Render Lesson
     lessonContent.innerHTML = marked.parse(data.lesson_context);
 
-    // Render Quiz
+    // 4. Render Quiz
     if (data.quiz) {
         renderQuiz(data.quiz);
     } else {

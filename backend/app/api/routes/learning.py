@@ -56,7 +56,7 @@ async def analyze_image(
         raise HTTPException(status_code=400, detail="File must be an image")
 
     file_path = save_upload_file(file)
-    labels, annotated_path = get_vision_agent().detect_objects(file_path)
+    labels, annotated_path, detected_objects = get_vision_agent().detect_objects(file_path)
     if not annotated_path:
         raise HTTPException(status_code=500, detail="Failed to process image")
 
@@ -84,6 +84,7 @@ async def analyze_image(
     return {
         "file_name": file.filename,
         "detected_label": [str(label) for label in labels],
+        "detected_objects": detected_objects,
         "annotated_img_url": annotated_url,
         "lesson_context": lesson_text,
         "quiz": quiz_data,

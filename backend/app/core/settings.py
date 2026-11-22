@@ -17,6 +17,9 @@ UPLOAD_DIR = FRONTEND_DIR / "static" / "uploads"
 MODEL_DIR = PROJECT_ROOT / "backend" / "resources" / "models"
 DATABASE_DIR = PROJECT_ROOT / "database"
 
+# Ensure Ultralytics stores its config within the workspace models directory
+os.environ["YOLO_CONFIG_DIR"] = str(MODEL_DIR)
+
 for directory in (UPLOAD_DIR, MODEL_DIR, DATABASE_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
