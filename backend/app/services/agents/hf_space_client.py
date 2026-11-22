@@ -5,17 +5,17 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from gradio_client import Client
-from dotenv import load_dotenv
+from backend.app.core.settings import HF_CHAT_SPACE_ID, HF_CHAT_TIMEOUT, HF_TOKEN
 
 logger = logging.getLogger("backend.app.services.agents.hf_space")
 
 # Default Hugging Face Space configuration
-DEFAULT_SPACE_ID = os.getenv("HF_CHAT_SPACE_ID", "DeeplearningVN/VVA")
+DEFAULT_SPACE_ID = HF_CHAT_SPACE_ID
 DEFAULT_SYSTEM_PROMPT = (
     "You are an English-learning tutor. Answer questions about English "
     "vocabulary, grammar, translation, and pronunciation clearly and politely."
 )
-DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HF_CHAT_TIMEOUT", "6.0"))
+DEFAULT_TIMEOUT_SECONDS = HF_CHAT_TIMEOUT
 
 _cached_client: Optional[Client] = None
 _cached_space_id: Optional[str] = None
@@ -23,8 +23,7 @@ _cached_space_id: Optional[str] = None
 
 def get_hf_token() -> Optional[str]:
     """Retrieve clean Hugging Face API token from environment variables."""
-    load_dotenv()
-    token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+    token = HF_TOKEN or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
     if token and not token.strip().startswith("your_"):
         return token.strip()
     return None

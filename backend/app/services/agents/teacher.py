@@ -1,9 +1,5 @@
-import os
-from dotenv import load_dotenv
-from langchain_core.prompts import PromptTemplate
 from backend.app.services.agents.base import Agent
 
-load_dotenv()
 
 class TeacherAgent(Agent):
     def __init__(self):
@@ -49,4 +45,3 @@ class TeacherAgent(Agent):
             - Ensure the content is easy to read for an English learner.
             """
         return self.generate_response(prompts.format(objects=object_detected))
-

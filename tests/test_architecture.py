@@ -1,0 +1,134 @@
+"""Architecture, modularization, and route registration verification tests."""
+import os
+import sys
+import unittest
+from pathlib import Path
+
+# Add project root to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+os.environ["YOLO_CONFIG_DIR"] = str(PROJECT_ROOT / "backend" / "resources" / "models")
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+
+class TestArchitectureAndRoutes(unittest.TestCase):
+    def test_main_app_import_and_routes(self):
+        """Verify FastAPI app is correctly initialized with all pages and API routes."""
+        from backend.app.main import app
+
+        self.assertIsNotNone(app)
+        self.assertEqual(app.title, "Visual Vocabulary Agent API")
+
+        # Extract all registered paths, including from FastAPI 0.115+ _IncludedRouter
+        registered_paths = set()
+        for route in app.routes:
+            if hasattr(route, "path"):
+                registered_paths.add(route.path)
+            elif hasattr(route, "original_router") and hasattr(route, "include_context"):
+                pfx = getattr(route.include_context, "prefix", "") or ""
+                for sub in route.original_router.routes:
+                    sub_path = getattr(sub, "path", "")
+                    registered_paths.add(pfx + sub_path)
+
+        # 1. Verify SSR Web View Pages
+        expected_pages = {"/", "/learn-image", "/chat-bot", "/ipa"}
+        for page_path in expected_pages:
+            self.assertIn(page_path, registered_paths, f"Missing Web Page route: {page_path}")
+
+        # 2. Verify REST API Endpoints
+        expected_apis = {
+            "/api/v1/analyze",
+            "/api/v1/evaluate-pronunciation",
+            "/api/v1/chat",
+            "/api/v1/chat-bot",
+            "/api/v1/chat/stream",
+            "/api/v1/logs/status",
+            "/api/v1/logs/chat",
+            "/api/v1/logs/learning",
+            "/api/v1/logs/pronunciation",
+            "/api/v1/logs/activities",
+        }
+        for api_path in expected_apis:
+            self.assertIn(api_path, registered_paths, f"Missing API endpoint: {api_path}")
+
+        # 3. Verify Static Mounts
+        mounted_prefixes = {route.path for route in app.routes if hasattr(route, "name") and route.name in ("assets", "uploads")}
+        self.assertIn("/assets", mounted_prefixes)
+        self.assertIn("/uploads", mounted_prefixes)
+
+    def test_utils_modularization_and_backward_compatibility(self):
+        """Verify storage and parsers are separated and content.py proxy works 100%."""
+        # 1. Direct module imports
+        from backend.app.utils.storage import save_upload_file, get_relative_url
+        from backend.app.utils.parsers import extract_json_from_ai, extract_quiz, build_message_list
+
+        self.assertTrue(callable(save_upload_file))
+        self.assertTrue(callable(get_relative_url))
+        self.assertTrue(callable(extract_json_from_ai))
+        self.assertTrue(callable(extract_quiz))
+        self.assertTrue(callable(build_message_list))
+
+        # 2. Backward compatibility proxy through content.py
+        import backend.app.utils.content as content_proxy
+
+        self.assertIs(content_proxy.save_upload_file, save_upload_file)
+        self.assertIs(content_proxy.get_relative_url, get_relative_url)
+        self.assertIs(content_proxy.extract_json_from_ai, extract_json_from_ai)
+        self.assertIs(content_proxy.extract_quiz, extract_quiz)
+        self.assertIs(content_proxy.build_message_list, build_message_list)
+
+        # 3. Test parsers logic directly
+        text_with_json = 'Some text {"score": 95, "feedback": "Good job"} other text'
+        parsed = extract_json_from_ai(text_with_json)
+        self.assertEqual(parsed, {"score": 95, "feedback": "Good job"})
+
+        text_with_quiz = 'Lesson text\n[QUIZ_START]\n{"question": "Q1", "options": ["A", "B"], "answer": "A"}\n[QUIZ_END]'
+        clean_text, quiz_obj = extract_quiz(text_with_quiz)
+        self.assertEqual(clean_text, "Lesson text")
+        self.assertEqual(quiz_obj, {"question": "Q1", "options": ["A", "B"], "answer": "A"})
+
+    def test_services_agents_exports(self):
+        """Verify services.agents exposes all agent classes cleanly."""
+        from backend.app.services.agents import (
+            Agent,
+            DetectAgent,
+            TeacherAgent,
+            VoiceAgent,
+            ChatAgent,
+        )
+        self.assertTrue(callable(Agent))
+        self.assertTrue(callable(DetectAgent))
+        self.assertTrue(callable(TeacherAgent))
+        self.assertTrue(callable(VoiceAgent))
+        self.assertTrue(callable(ChatAgent))
+
+    def test_settings_centralization(self):
+        """Verify core settings exports all necessary directories and configs."""
+        from backend.app.core.settings import (
+            PROJECT_ROOT,
+            FRONTEND_DIR,
+            TEMPLATES_DIR,
+            ASSETS_DIR,
+            UPLOAD_DIR,
+            CROPS_DIR,
+            MODEL_DIR,
+            DATABASE_DIR,
+            DATABASE_URL,
+            DEFAULT_GEMINI_MODEL,
+            DEFAULT_YOLO_MODEL,
+        )
+        self.assertTrue(PROJECT_ROOT.exists())
+        self.assertTrue(TEMPLATES_DIR.exists())
+        self.assertTrue(ASSETS_DIR.exists())
+        self.assertTrue(UPLOAD_DIR.exists())
+        self.assertTrue(CROPS_DIR.exists())
+        self.assertTrue(MODEL_DIR.exists())
+        self.assertTrue(DATABASE_DIR.exists())
+        self.assertIsNotNone(DATABASE_URL)
+        self.assertEqual(DEFAULT_GEMINI_MODEL, "gemini-2.5-flash")
+        self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.pt")
+
+
+if __name__ == "__main__":
+    unittest.main()
