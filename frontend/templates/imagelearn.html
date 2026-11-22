@@ -134,6 +134,33 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .record-btn:hover { transform: scale(1.06); }
 .record-btn.recording { background: var(--accent-red); }
 .hidden { display: none !important; }
+/* Phase 2: Scan Mode & Scene Context Styling */
+.scan-mode-section { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-hairline); display: flex; flex-direction: column; gap: 0.6rem; }
+.scan-mode-label { font-size: 0.85rem; font-weight: 700; color: var(--ink-primary); display: flex; align-items: center; gap: 0.45rem; }
+.scan-mode-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.mode-pill { position: relative; cursor: pointer; user-select: none; }
+.mode-pill input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.mode-content { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.95rem; border-radius: var(--radius-soft); border: 1px solid var(--border-hairline); background: var(--surface-page); color: var(--ink-muted); font-size: 0.85rem; font-weight: 600; transition: all 0.2s ease; }
+.mode-pill:hover .mode-content { border-color: var(--ink-caption); color: var(--ink-primary); background: var(--surface-card); }
+.mode-pill input[type="radio"]:checked + .mode-content { background: var(--ink-primary); color: #FFFFFF; border-color: var(--ink-primary); box-shadow: 0 2px 8px rgba(9, 13, 22, 0.15); }
+.mode-pill input[type="radio"]:focus-visible + .mode-content { outline: 2px solid var(--accent-cobalt); outline-offset: 2px; }
+.scene-banner { background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid var(--border-hairline); border-radius: var(--radius-soft); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-flat); display: flex; flex-direction: column; gap: 0.75rem; }
+.scene-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.scene-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--accent-cobalt-light); color: var(--accent-cobalt); font-size: 0.95rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: var(--radius-sharp); border: 1px solid #BFDBFE; }
+.scene-tag-en { font-size: 0.8rem; font-weight: 600; color: var(--ink-caption); background: var(--surface-subtle); padding: 0.25rem 0.65rem; border-radius: 9999px; border: 1px solid var(--border-hairline); font-family: var(--font-mono); }
+.scene-description { font-size: 0.92rem; color: var(--ink-body); line-height: 1.5; }
+.spatial-relations-list { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.25rem; }
+.spatial-chip { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600; color: var(--ink-body); background: var(--surface-card); border: 1px solid var(--border-hairline); padding: 0.3rem 0.65rem; border-radius: var(--radius-sharp); }
+.spatial-chip i { color: var(--accent-terracotta); font-size: 0.75rem; }
+.cefr-badge { font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 4px; letter-spacing: 0.04em; text-transform: uppercase; display: inline-flex; align-items: center; }
+.cefr-a1, .cefr-a2 { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+.cefr-b1, .cefr-b2 { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.cefr-c1, .cefr-c2 { background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
+.card-source-badge { position: absolute; top: 5px; left: 5px; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 0.25rem; }
+.source-yolo { background: rgba(15, 23, 42, 0.8); color: #F8FAFC; }
+.source-gemini { background: rgba(29, 78, 216, 0.85); color: #FFFFFF; }
+.card-vietnamese { font-size: 0.78rem; color: var(--ink-caption); text-align: center; margin-top: -0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag-cefr { margin-left: 0.35rem; font-size: 0.7rem; font-weight: 700; }
 @media (max-width: 900px) { .results-grid { grid-template-columns: 1fr; } .page-header { flex-direction: column; align-items: flex-start; gap: 1rem; } }
 @media (max-width: 768px) { .nav-links-track { display: none; } }
     </style>
@@ -218,6 +245,37 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
                     </div>
                 </div>
 
+                <!-- Scan Mode Selector (Phase 2 Upgrade) -->
+                <div class="scan-mode-section">
+                    <span class="scan-mode-label">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                        <span>Chế độ quét hình ảnh:</span>
+                    </span>
+                    <div class="scan-mode-selector" role="radiogroup" aria-label="Lựa chọn chế độ quét hình ảnh">
+                        <label class="mode-pill" title="Chỉ dùng YOLO11 quét cục bộ siêu tốc (dưới 0.2s)">
+                            <input type="radio" name="scan-mode-radio" value="fast">
+                            <span class="mode-content">
+                                <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+                                <span>Quét nhanh (YOLO)</span>
+                            </span>
+                        </label>
+                        <label class="mode-pill active" title="Tự động kết hợp Gemini Flash Vision khi YOLO phát hiện ít hơn 2 vật thể">
+                            <input type="radio" name="scan-mode-radio" value="auto" checked>
+                            <span class="mode-content">
+                                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                                <span>Tự động AI (Hybrid)</span>
+                            </span>
+                        </label>
+                        <label class="mode-pill" title="Luôn phân tích sâu toàn diện bằng Gemini 2.5 Flash Vision">
+                            <input type="radio" name="scan-mode-radio" value="deep">
+                            <span class="mode-content">
+                                <i class="fa-solid fa-brain" aria-hidden="true"></i>
+                                <span>Quét sâu (Deep AI)</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <div id="preview-container" class="hidden">
                     <!-- SVG placeholder avoids broken-image warning -->
                     <img id="image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="Xem trước ảnh tải lên">
@@ -236,6 +294,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 
             <!-- Results Section -->
             <section id="results-section" class="hidden">
+                <!-- Scene Context Banner (Phase 2 Upgrade) -->
+                <div id="scene-banner" class="scene-banner hidden">
+                    <div class="scene-header">
+                        <div class="scene-badge">
+                            <i class="fa-solid fa-compass" aria-hidden="true"></i>
+                            <span id="scene-title">Không gian chung</span>
+                        </div>
+                        <span class="scene-tag-en" id="scene-title-en">General Environment</span>
+                    </div>
+                    <p id="scene-description" class="scene-description"></p>
+                    <div id="spatial-relations-container" class="spatial-relations-list"></div>
+                </div>
+
                 <div class="results-grid">
                     <!-- Left: Vision Results -->
                     <div class="card result-card">

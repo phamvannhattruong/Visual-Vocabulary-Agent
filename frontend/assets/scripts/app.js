@@ -123,6 +123,22 @@ captureBtn.addEventListener('click', () => {
 });
 
 // --- 4. API Analysis ---
+// Scan mode selection listener
+const scanModeRadios = document.querySelectorAll('input[name="scan-mode-radio"]');
+scanModeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+        document.querySelectorAll('.mode-pill').forEach(pill => pill.classList.remove('active'));
+        if (radio.checked && radio.parentElement) {
+            radio.parentElement.classList.add('active');
+        }
+    });
+});
+
+function getSelectedScanMode() {
+    const checked = document.querySelector('input[name="scan-mode-radio"]:checked');
+    return checked ? checked.value : 'auto';
+}
+
 analyzeBtn.addEventListener('click', async () => {
     if (!currentFile) return;
 
@@ -131,6 +147,7 @@ analyzeBtn.addEventListener('click', async () => {
     
     const formData = new FormData();
     formData.append('file', currentFile);
+    formData.append('scan_mode', getSelectedScanMode());
 
     try {
         const response = await fetch('/api/v1/analyze', {
@@ -142,7 +159,7 @@ analyzeBtn.addEventListener('click', async () => {
         if (data.success) {
             renderResults(data);
         } else {
-            alert('Analysis failed');
+            alert('Analysis failed: ' + (data.detail || 'Unknown error'));
         }
     } catch (err) {
         console.error(err);
@@ -155,8 +172,38 @@ analyzeBtn.addEventListener('click', async () => {
 function renderResults(data) {
     resultsSection.classList.remove('hidden');
     annotatedImage.src = data.annotated_img_url + '?t=' + new Date().getTime();
+
+    // 0. Render Scene Context Banner (Phase 2 Upgrade)
+    const sceneBanner = document.getElementById('scene-banner');
+    const sceneTitle = document.getElementById('scene-title');
+    const sceneTitleEn = document.getElementById('scene-title-en');
+    const sceneDesc = document.getElementById('scene-description');
+    const spatialContainer = document.getElementById('spatial-relations-container');
+
+    if (sceneBanner && data.scene_context) {
+        const sc = data.scene_context;
+        if (sc.scene && sc.scene !== 'Unknown') {
+            sceneBanner.classList.remove('hidden');
+            if (sceneTitle) sceneTitle.textContent = sc.scene_vietnamese || sc.scene;
+            if (sceneTitleEn) sceneTitleEn.textContent = sc.scene;
+            if (sceneDesc) sceneDesc.textContent = sc.description || '';
+
+            if (spatialContainer) {
+                spatialContainer.innerHTML = '';
+                const relations = sc.spatial_relationships || [];
+                relations.forEach(rel => {
+                    const chip = document.createElement('span');
+                    chip.className = 'spatial-chip';
+                    chip.innerHTML = `<i class="fa-solid fa-location-dot" aria-hidden="true"></i> <span>${rel}</span>`;
+                    spatialContainer.appendChild(chip);
+                });
+            }
+        } else {
+            sceneBanner.classList.add('hidden');
+        }
+    }
     
-    // 1. Render Flashcards from detected objects (Phase 1 Vision Upgrade)
+    // 1. Render Flashcards from detected objects (Phase 1 & Phase 2 Vision Upgrades)
     if (detectedCardsGrid) {
         detectedCardsGrid.innerHTML = '';
         const objects = data.detected_objects || [];
@@ -174,13 +221,29 @@ function renderResults(data) {
                     ? `<img class="card-thumb-img" src="${obj.crop_url}?t=${new Date().getTime()}" alt="${obj.label}" loading="lazy">` 
                     : `<div class="card-thumb-placeholder"><i class="fa-solid fa-image"></i></div>`;
 
+                const cefrLevel = (obj.cefr_level || 'A1').toUpperCase();
+                const cefrClass = 'cefr-' + cefrLevel.toLowerCase();
+
+                const sourceBadge = obj.source === 'gemini'
+                    ? `<span class="card-source-badge source-gemini" title="Nhận diện bởi Gemini 2.5 Flash"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI</span>`
+                    : `<span class="card-source-badge source-yolo" title="Nhận diện bởi YOLO11"><i class="fa-solid fa-bolt" aria-hidden="true"></i> YOLO</span>`;
+
+                const vnMeaning = obj.vietnamese 
+                    ? `<span class="card-vietnamese" title="${obj.vietnamese}">${obj.vietnamese}</span>` 
+                    : '';
+
                 card.innerHTML = `
                     <div class="card-thumb-wrap">
                         ${thumbHtml}
+                        ${sourceBadge}
                         <span class="card-conf-badge">${confPercent}%</span>
                     </div>
                     <div class="card-info">
-                        <h4 class="card-word">${obj.label}</h4>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap;">
+                            <h4 class="card-word">${obj.label}</h4>
+                            <span class="cefr-badge ${cefrClass}">${cefrLevel}</span>
+                        </div>
+                        ${vnMeaning}
                         <div class="card-btn-row">
                             <button type="button" class="card-action-btn speak-btn" onclick="speak('${obj.label}')" title="Nghe phát âm" aria-label="Nghe ${obj.label}">
                                 <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
@@ -198,7 +261,7 @@ function renderResults(data) {
         } else {
             detectedCardsGrid.innerHTML = `
                 <p style="grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-caption); text-align: center; padding: 1rem;">
-                    Không tìm thấy vật thể riêng biệt nào. Hãy thử chụp ảnh gần hơn và đủ sáng.
+                    Không tìm thấy vật thể riêng biệt nào. Hãy thử chuyển sang chế độ <strong>Quét sâu (Deep AI)</strong> hoặc chụp lại góc ảnh rõ hơn.
                 </p>
             `;
         }
@@ -207,11 +270,20 @@ function renderResults(data) {
     // 2. Render Quick Tags
     detectedTags.innerHTML = '';
     const labels = data.detected_label || [];
+    const objectsMap = {};
+    (data.detected_objects || []).forEach(o => { objectsMap[o.label.toLowerCase()] = o; });
+
     labels.forEach(label => {
         const tag = document.createElement('div');
         tag.className = 'tag-btn';
+        const objMeta = objectsMap[label.toLowerCase()];
+        const cefrTag = objMeta && objMeta.cefr_level 
+            ? `<span class="cefr-badge cefr-${objMeta.cefr_level.toLowerCase()} tag-cefr">${objMeta.cefr_level}</span>` 
+            : '';
+
         tag.innerHTML = `
             <span>${label}</span>
+            ${cefrTag}
             <button type="button" class="tag-action-icon" onclick="event.stopPropagation(); speak('${label}')" title="Nghe ${label}" aria-label="Nghe ${label}">
                 <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
             </button>
