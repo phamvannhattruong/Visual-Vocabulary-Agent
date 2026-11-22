@@ -117,6 +117,13 @@ COCO_METADATA: Dict[str, Dict[str, str]] = {
     "toothbrush": {"vietnamese": "bàn chải đánh răng", "cefr": "A1"},
 }
 
+# Labels representing amorphous substances, background, or anatomical parts that should not have separate boxes
+DISALLOWED_LABELS = {
+    "water", "liquid", "air", "skin", "hair", "wall", "ceiling",
+    "light", "shadow", "reflection", "face", "head", "body", "background",
+    "room", "space", "door", "floor"
+}
+
 
 def calculate_iou(box_a: List[int], box_b: List[int]) -> float:
     """Calculate Intersection over Union (IoU) of two bounding boxes [x1, y1, x2, y2]."""
@@ -148,6 +155,91 @@ class DetectAgent:
         self.model_path = MODEL_DIR / model_name
         self.model = YOLO(str(self.model_path))
         self._gemini_client = None
+        self._face_cascade = None
+
+    def _get_face_cascade(self):
+        """Lazy initialization of Haar cascade for facial geometry alignment."""
+        if self._face_cascade is None:
+            try:
+                cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                self._face_cascade = cv2.CascadeClassifier(cascade_path)
+            except Exception as e:
+                logger.debug(f"Could not load face cascade: {e}")
+                self._face_cascade = None
+        return self._face_cascade
+
+    def refine_detected_box(self, img: np.ndarray, label: str, raw_box: List[int]) -> List[int]:
+        """
+        Auto-refine and snap bounding box coordinates:
+        1. Specialized facial anatomy alignment for glasses/sunglasses.
+        2. Edge density trimming for containers and everyday objects to eliminate empty background.
+        """
+        h, w = img.shape[:2]
+        x1, y1, x2, y2 = raw_box
+        x1 = max(0, min(x1, w - 1))
+        y1 = max(0, min(y1, h - 1))
+        x2 = max(x1 + 1, min(x2, w))
+        y2 = max(y1 + 1, min(y2, h))
+
+        # 1. Specialized refinement for eyewear based on facial anatomy
+        if label.lower() in ("glasses", "eyeglasses", "spectacles", "sunglasses"):
+            face_cascade = self._get_face_cascade()
+            if face_cascade is not None and not face_cascade.empty():
+                try:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(
+                        gray, scaleFactor=1.1, minNeighbors=4, minSize=(60, 60)
+                    )
+                    for (fx, fy, fw, fh) in faces:
+                        # Check if box overlaps with the detected face horizontally and vertically
+                        if not (x2 < fx or x1 > fx + fw or y2 < fy or y1 > fy + fh):
+                            # Eyeglasses sit across 8% to 92% of face width, and 28% to 58% of face height
+                            gx1 = max(0, fx + int(fw * 0.08))
+                            gx2 = min(w, fx + int(fw * 0.92))
+                            gy1 = max(0, fy + int(fh * 0.28))
+                            gy2 = min(h, fy + int(fh * 0.58))
+                            return [int(gx1), int(gy1), int(gx2), int(gy2)]
+                except Exception as e:
+                    logger.debug(f"Eyewear facial refinement failed: {e}")
+
+        # 2. General edge density trimming to eliminate empty background walls / padding
+        roi = img[y1:y2, x1:x2]
+        if roi.shape[0] >= 24 and roi.shape[1] >= 24:
+            try:
+                gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                blurred = cv2.GaussianBlur(gray_roi, (5, 5), 0)
+                edges = cv2.Canny(blurred, 30, 100)
+                row_act = np.sum(edges > 0, axis=1)
+                col_act = np.sum(edges > 0, axis=0)
+                act_rows = np.where(row_act >= 3)[0]
+                act_cols = np.where(col_act >= 3)[0]
+                if len(act_rows) > 0 and len(act_cols) > 0:
+                    r_min, r_max = act_rows[0], act_rows[-1]
+                    c_min, c_max = act_cols[0], act_cols[-1]
+                    rh, rw = roi.shape[:2]
+                    pad_y = int(rh * 0.04)
+                    pad_x = int(rw * 0.04)
+                    new_y1 = y1
+                    new_y2 = y2
+                    new_x1 = x1
+                    new_x2 = x2
+
+                    # Trim if empty padding is at least 10%
+                    if r_min > int(rh * 0.10):
+                        new_y1 = max(0, y1 + r_min - pad_y)
+                    if (rh - r_max) > int(rh * 0.10):
+                        new_y2 = min(h, y1 + r_max + pad_y)
+                    if c_min > int(rw * 0.10):
+                        new_x1 = max(0, x1 + c_min - pad_x)
+                    if (rw - c_max) > int(rw * 0.10):
+                        new_x2 = min(w, x1 + c_max + pad_x)
+
+                    if (new_x2 - new_x1) >= int(rw * 0.3) and (new_y2 - new_y1) >= int(rh * 0.3):
+                        return [int(new_x1), int(new_y1), int(new_x2), int(new_y2)]
+            except Exception as e:
+                logger.debug(f"Edge density trimming failed: {e}")
+
+        return [int(x1), int(y1), int(x2), int(y2)]
 
     def _get_gemini_client(self):
         """Lazy initialization of Google GenAI client for multimodal reasoning."""
@@ -194,33 +286,44 @@ class DetectAgent:
             return None
 
         prompt = """
-        You are a computer vision and English education expert.
-        Analyze this image carefully and return a JSON object with:
-        1. "scene": The overarching environment or setting (e.g., "Study Desk", "Kitchen", "Classroom", "Living Room", "Office", "Street", "Supermarket", "Park").
-        2. "scene_vietnamese": Vietnamese translation of the scene (e.g., "Bàn học tập", "Phòng bếp", "Lớp học").
-        3. "description": A concise, natural 1-sentence English description of the scene.
-        4. "spatial_relationships": A list of 2 to 3 practical sentences describing relative spatial locations of objects using prepositions of place (e.g., "The pen is on the notebook", "The cup is next to the laptop").
-        5. "objects": A list of up to 6 prominent, everyday objects in the image (especially stationary, utensils, food, tools, or items that a basic 80-class detector might miss).
-           Each object must have:
-           - "label": English vocabulary word (lowercase, singular, e.g., "pencil", "notebook", "eraser", "water bottle", "glasses").
-           - "vietnamese": Accurate Vietnamese meaning (e.g., "bút chì", "vở ghi chép", "cục tẩy").
-           - "cefr_level": Difficulty level ("A1", "A2", "B1", "B2", "C1").
-           - "confidence": Float between 0.70 and 0.99.
-           - "box_2d": [ymin, xmin, ymax, xmax] normalized integers on a 0 to 1000 scale.
+        You are a high-precision computer vision and English vocabulary education expert.
+        Analyze this image and return a strictly structured JSON object.
 
-        Output ONLY the valid JSON structure matching this specification:
+        CRITICAL BOUNDING BOX & OBJECT DETECTION SPECIFICATIONS:
+        1. "box_2d": [ymin, xmin, ymax, xmax] normalized integers strictly from 0 to 1000:
+           - ymin: topmost edge of the object
+           - xmin: leftmost edge of the object
+           - ymax: bottommost edge of the object
+           - xmax: rightmost edge of the object
+           - Strictly ensure ymin < ymax and xmin < xmax.
+        2. EXTREMELY TIGHT BOUNDING BOXES:
+           - Bounding boxes MUST fit EXTREMELY TIGHTLY around the exact visible physical boundaries of the object.
+           - Absolutely DO NOT include excess background, walls, ceiling, floor, or surrounding empty air.
+        3. WEARABLE ACCESSORIES & EYEWEAR:
+           - For "glasses" / "sunglasses": The box MUST tightly enclose ONLY the spectacles frame and lenses across the eyes and nose bridge (roughly the middle vertical area of the face). NEVER enclose the forehead, eyebrows, hair, chin, or whole head.
+        4. CONTAINERS VS LIQUIDS:
+           - For "cup", "mug", "glass", "bottle", "plastic cup": The box MUST fit the container tightly from the top rim down to the very base. DO NOT include empty wall above the rim.
+           - DO NOT detect liquids or substances inside containers (e.g., DO NOT detect "water", "tea", "coffee", "beer"). Always detect the physical container itself ("cup", "glass", "bottle").
+        5. PHYSICAL COUNTABLE OBJECTS ONLY:
+           - Detect only tangible, countable objects useful for English learners (e.g., "cup", "pen", "notebook", "laptop", "glasses", "backpack", "watch", "chair").
+           - NEVER detect amorphous substances, backgrounds, or body parts: DO NOT detect "water", "liquid", "air", "skin", "hair", "face", "head", "wall", "ceiling", "light", "shadow".
+
+        Output format:
         {
-          "scene": "...",
-          "scene_vietnamese": "...",
-          "description": "...",
-          "spatial_relationships": ["...", "..."],
+          "scene": "General Setting / Room Type",
+          "scene_vietnamese": "Tên không gian tiếng Việt",
+          "description": "A 1-sentence English description of the scene.",
+          "spatial_relationships": [
+            "The cup is held next to the person.",
+            "The glasses are worn on the face."
+          ],
           "objects": [
             {
-              "label": "...",
-              "vietnamese": "...",
-              "cefr_level": "...",
+              "label": "glasses",
+              "vietnamese": "kính mắt",
+              "cefr_level": "A1",
               "confidence": 0.95,
-              "box_2d": [100, 200, 450, 600]
+              "box_2d": [450, 320, 580, 580]
             }
           ]
         }
@@ -388,7 +491,7 @@ class DetectAgent:
 
                     for g_obj in gemini_objects:
                         g_label = str(g_obj.get("label", "")).strip().lower()
-                        if not g_label:
+                        if not g_label or g_label in DISALLOWED_LABELS:
                             continue
 
                         g_box_2d = g_obj.get("box_2d", [])
@@ -401,6 +504,9 @@ class DetectAgent:
                         else:
                             gx1, gy1, gx2, gy2 = 0, 0, w, h
 
+                        # Apply Auto-Refinement (facial anatomy alignment & edge density snapping)
+                        refined_box = self.refine_detected_box(img, g_label, [gx1, gy1, gx2, gy2])
+                        gx1, gy1, gx2, gy2 = refined_box
                         g_box = [gx1, gy1, gx2, gy2]
 
                         # Check if matches an existing YOLO object

@@ -152,6 +152,49 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
             gemini_labels = [o["label"] for o in gemini_objects]
             self.assertIn("pencil", gemini_labels)
 
+    def test_disallowed_labels_filtering(self):
+        test_img_path = Path("frontend/static/uploads/test.jpg")
+        mock_payload_with_disallowed = {
+            "scene": "Kitchen",
+            "scene_vietnamese": "Nhà bếp",
+            "description": "A glass of water.",
+            "spatial_relationships": [],
+            "objects": [
+                {
+                    "label": "water",  # Disallowed amorphous label
+                    "vietnamese": "nước",
+                    "cefr_level": "A1",
+                    "confidence": 0.90,
+                    "box_2d": [100, 100, 300, 300],
+                },
+                {
+                    "label": "cup",
+                    "vietnamese": "cái cốc",
+                    "cefr_level": "A1",
+                    "confidence": 0.94,
+                    "box_2d": [100, 100, 400, 350],
+                },
+            ],
+        }
+
+        with patch.object(self.agent, "_call_gemini_vision_analysis", return_value=mock_payload_with_disallowed):
+            labels, output_path, detected_objects, scene_context = self.agent.detect_hybrid(
+                test_img_path, scan_mode="deep"
+            )
+            object_labels = [o["label"] for o in detected_objects]
+            self.assertNotIn("water", object_labels, "'water' must be filtered by DISALLOWED_LABELS")
+
+    def test_refine_detected_box_boundary_clamping(self):
+        # Create dummy image
+        dummy_img = np.zeros((200, 300, 3), dtype=np.uint8)
+        # Box with coordinates outside boundaries
+        raw_box = [-20, -10, 350, 250]
+        refined = self.agent.refine_detected_box(dummy_img, "cup", raw_box)
+        self.assertEqual(refined[0], 0)
+        self.assertEqual(refined[1], 0)
+        self.assertEqual(refined[2], 300)
+        self.assertEqual(refined[3], 200)
+
     def test_teacher_agent_with_scene_context(self):
         teacher = TeacherAgent()
         scene_ctx = {
