@@ -50,18 +50,23 @@ async def analyze_image(
     background_tasks: BackgroundTasks,
     http_request: Request,
     file: UploadFile = File(...),
+    scan_mode: str = Form("auto"),
     user_id: Optional[int] = Form(None),
 ):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
     file_path = save_upload_file(file)
-    labels, annotated_path, detected_objects = get_vision_agent().detect_objects(file_path)
+    labels, annotated_path, detected_objects, scene_context = get_vision_agent().detect_hybrid(
+        file_path, scan_mode=scan_mode
+    )
     if not annotated_path:
         raise HTTPException(status_code=500, detail="Failed to process image")
 
     try:
-        raw_response = get_teacher_agent().generate_learning_content(labels)
+        raw_response = get_teacher_agent().generate_learning_content(
+            labels, scene_context=scene_context
+        )
         lesson_text, quiz_data = extract_quiz(raw_response)
     except Exception:
         lesson_text, quiz_data = "Sorry, I couldn't generate a lesson right now.", None
@@ -85,6 +90,8 @@ async def analyze_image(
         "file_name": file.filename,
         "detected_label": [str(label) for label in labels],
         "detected_objects": detected_objects,
+        "scene_context": scene_context,
+        "scan_mode": scan_mode,
         "annotated_img_url": annotated_url,
         "lesson_context": lesson_text,
         "quiz": quiz_data,
