@@ -1,10 +1,12 @@
+import json
+import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.core.settings import MODEL_DIR, UPLOAD_DIR
-from backend.app.utils.content import get_relative_url
+from backend.app.core.settings import API_KEY_GEMINI, DEFAULT_GEMINI_MODEL, MODEL_DIR, UPLOAD_DIR
+from backend.app.utils.content import extract_json_from_ai, get_relative_url
 
 # Configure Ultralytics to store settings inside the project directory before importing YOLO
 os.environ["YOLO_CONFIG_DIR"] = str(MODEL_DIR)
@@ -14,6 +16,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from ultralytics import YOLO
 
+logger = logging.getLogger("backend.app.services.agents.vision")
 
 try:
     import spaces
@@ -29,12 +32,135 @@ except ImportError:
             return decorator
     spaces = _SpacesMock()
 
+
+# Comprehensive CEFR level and Vietnamese dictionary for COCO 80 classes
+COCO_METADATA: Dict[str, Dict[str, str]] = {
+    "person": {"vietnamese": "người", "cefr": "A1"},
+    "bicycle": {"vietnamese": "xe đạp", "cefr": "A1"},
+    "car": {"vietnamese": "ô tô", "cefr": "A1"},
+    "motorcycle": {"vietnamese": "xe máy", "cefr": "A2"},
+    "airplane": {"vietnamese": "máy bay", "cefr": "A2"},
+    "bus": {"vietnamese": "xe buýt", "cefr": "A1"},
+    "train": {"vietnamese": "tàu hỏa", "cefr": "A1"},
+    "truck": {"vietnamese": "xe tải", "cefr": "A2"},
+    "boat": {"vietnamese": "thuyền", "cefr": "A2"},
+    "traffic light": {"vietnamese": "đèn giao thông", "cefr": "A2"},
+    "fire hydrant": {"vietnamese": "trụ cứu hỏa", "cefr": "B1"},
+    "stop sign": {"vietnamese": "biển báo dừng", "cefr": "A2"},
+    "parking meter": {"vietnamese": "đồng hồ đỗ xe", "cefr": "B1"},
+    "bench": {"vietnamese": "ghế dài", "cefr": "A2"},
+    "bird": {"vietnamese": "con chim", "cefr": "A1"},
+    "cat": {"vietnamese": "con mèo", "cefr": "A1"},
+    "dog": {"vietnamese": "con chó", "cefr": "A1"},
+    "horse": {"vietnamese": "con ngựa", "cefr": "A1"},
+    "sheep": {"vietnamese": "con cừu", "cefr": "A1"},
+    "cow": {"vietnamese": "con bò", "cefr": "A1"},
+    "elephant": {"vietnamese": "con voi", "cefr": "A1"},
+    "bear": {"vietnamese": "con gấu", "cefr": "A1"},
+    "zebra": {"vietnamese": "ngựa vằn", "cefr": "A2"},
+    "giraffe": {"vietnamese": "hươu cao cổ", "cefr": "A2"},
+    "backpack": {"vietnamese": "ba lô", "cefr": "A2"},
+    "umbrella": {"vietnamese": "cây dù / ô", "cefr": "A1"},
+    "handbag": {"vietnamese": "túi xách", "cefr": "A2"},
+    "tie": {"vietnamese": "cà vạt", "cefr": "A2"},
+    "suitcase": {"vietnamese": "va li", "cefr": "A2"},
+    "frisbee": {"vietnamese": "đĩa ném", "cefr": "B1"},
+    "skis": {"vietnamese": "ván trượt tuyết", "cefr": "A2"},
+    "snowboard": {"vietnamese": "ván trượt tuyết", "cefr": "A2"},
+    "sports ball": {"vietnamese": "quả bóng", "cefr": "A1"},
+    "kite": {"vietnamese": "con diều", "cefr": "A1"},
+    "baseball bat": {"vietnamese": "gậy bóng chày", "cefr": "A2"},
+    "baseball glove": {"vietnamese": "găng bóng chày", "cefr": "A2"},
+    "skateboard": {"vietnamese": "ván trượt", "cefr": "A2"},
+    "surfboard": {"vietnamese": "ván lướt sóng", "cefr": "A2"},
+    "tennis racket": {"vietnamese": "vợt tennis", "cefr": "A2"},
+    "bottle": {"vietnamese": "chai nước", "cefr": "A1"},
+    "wine glass": {"vietnamese": "ly rượu", "cefr": "A2"},
+    "cup": {"vietnamese": "cái cốc / tách", "cefr": "A1"},
+    "fork": {"vietnamese": "cái nĩa", "cefr": "A1"},
+    "knife": {"vietnamese": "con dao", "cefr": "A1"},
+    "spoon": {"vietnamese": "cái thìa / muỗng", "cefr": "A1"},
+    "bowl": {"vietnamese": "cái bát / tô", "cefr": "A1"},
+    "banana": {"vietnamese": "quả chuối", "cefr": "A1"},
+    "apple": {"vietnamese": "quả táo", "cefr": "A1"},
+    "sandwich": {"vietnamese": "bánh mì kẹp", "cefr": "A1"},
+    "orange": {"vietnamese": "quả cam", "cefr": "A1"},
+    "broccoli": {"vietnamese": "súp lơ xanh", "cefr": "A2"},
+    "carrot": {"vietnamese": "củ cà rốt", "cefr": "A1"},
+    "hot dog": {"vietnamese": "bánh mì xúc xích", "cefr": "A1"},
+    "pizza": {"vietnamese": "bánh pizza", "cefr": "A1"},
+    "donut": {"vietnamese": "bánh vòng", "cefr": "A2"},
+    "cake": {"vietnamese": "bánh ngọt", "cefr": "A1"},
+    "chair": {"vietnamese": "cái ghế", "cefr": "A1"},
+    "couch": {"vietnamese": "ghế sô pha", "cefr": "A2"},
+    "potted plant": {"vietnamese": "chậu cây", "cefr": "A2"},
+    "bed": {"vietnamese": "cái giường", "cefr": "A1"},
+    "dining table": {"vietnamese": "bàn ăn", "cefr": "A1"},
+    "toilet": {"vietnamese": "bồn cầu", "cefr": "A1"},
+    "tv": {"vietnamese": "ti vi", "cefr": "A1"},
+    "laptop": {"vietnamese": "máy tính xách tay", "cefr": "A2"},
+    "mouse": {"vietnamese": "chuột máy tính", "cefr": "A1"},
+    "remote": {"vietnamese": "điều khiển từ xa", "cefr": "A2"},
+    "keyboard": {"vietnamese": "bàn phím", "cefr": "A2"},
+    "cell phone": {"vietnamese": "điện thoại di động", "cefr": "A1"},
+    "microwave": {"vietnamese": "lò vi sóng", "cefr": "A2"},
+    "oven": {"vietnamese": "lò nướng", "cefr": "A2"},
+    "toaster": {"vietnamese": "máy nướng bánh mì", "cefr": "B1"},
+    "sink": {"vietnamese": "bồn rửa", "cefr": "A2"},
+    "refrigerator": {"vietnamese": "tủ lạnh", "cefr": "A2"},
+    "book": {"vietnamese": "quyển sách", "cefr": "A1"},
+    "clock": {"vietnamese": "đồng hồ", "cefr": "A1"},
+    "vase": {"vietnamese": "bình hoa", "cefr": "A2"},
+    "scissors": {"vietnamese": "cái kéo", "cefr": "A2"},
+    "teddy bear": {"vietnamese": "gấu bông", "cefr": "A1"},
+    "hair drier": {"vietnamese": "máy sấy tóc", "cefr": "B1"},
+    "toothbrush": {"vietnamese": "bàn chải đánh răng", "cefr": "A1"},
+}
+
+
+def calculate_iou(box_a: List[int], box_b: List[int]) -> float:
+    """Calculate Intersection over Union (IoU) of two bounding boxes [x1, y1, x2, y2]."""
+    x_a = max(box_a[0], box_b[0])
+    y_a = max(box_a[1], box_b[1])
+    x_b = min(box_a[2], box_b[2])
+    y_b = min(box_a[3], box_b[3])
+
+    inter_w = max(0, x_b - x_a)
+    inter_h = max(0, y_b - y_a)
+    inter_area = inter_w * inter_h
+
+    box_a_area = max(1, (box_a[2] - box_a[0]) * (box_a[3] - box_a[1]))
+    box_b_area = max(1, (box_b[2] - box_b[0]) * (box_b[3] - box_b[1]))
+
+    union_area = float(box_a_area + box_b_area - inter_area)
+    return inter_area / union_area if union_area > 0 else 0.0
+
+
 class DetectAgent:
+    """
+    Hybrid Vision Agent:
+    - Phase 1: Local YOLO11 object detection, EXIF normalization, and cropping.
+    - Phase 2: Hybrid Gemini 2.5 Flash Vision for open-vocabulary detection,
+               scene environment understanding, and spatial relations.
+    """
+
     def __init__(self, model_name: str = "yolo11n.pt"):
         self.model_path = MODEL_DIR / model_name
-        
-        # If model doesn't exist, YOLO(str(path)) will download it to that path
         self.model = YOLO(str(self.model_path))
+        self._gemini_client = None
+
+    def _get_gemini_client(self):
+        """Lazy initialization of Google GenAI client for multimodal reasoning."""
+        if self._gemini_client is None:
+            if not API_KEY_GEMINI:
+                return None
+            try:
+                from google import genai
+                self._gemini_client = genai.Client(api_key=API_KEY_GEMINI)
+            except Exception as e:
+                logger.warning(f"Could not initialize Google GenAI Client: {e}")
+                return None
+        return self._gemini_client
 
     def normalize_image_orientation(self, image_path: Path) -> np.ndarray | None:
         """
@@ -58,27 +184,109 @@ class DetectAgent:
         except Exception:
             return cv2.imread(str(image_path))
 
+    def _call_gemini_vision_analysis(self, image_bytes: bytes) -> Optional[Dict[str, Any]]:
+        """
+        Query Gemini 2.5 Flash Vision for open-vocabulary objects, scene context,
+        and spatial relationships between detected entities.
+        """
+        client = self._get_gemini_client()
+        if client is None:
+            return None
+
+        prompt = """
+        You are a computer vision and English education expert.
+        Analyze this image carefully and return a JSON object with:
+        1. "scene": The overarching environment or setting (e.g., "Study Desk", "Kitchen", "Classroom", "Living Room", "Office", "Street", "Supermarket", "Park").
+        2. "scene_vietnamese": Vietnamese translation of the scene (e.g., "Bàn học tập", "Phòng bếp", "Lớp học").
+        3. "description": A concise, natural 1-sentence English description of the scene.
+        4. "spatial_relationships": A list of 2 to 3 practical sentences describing relative spatial locations of objects using prepositions of place (e.g., "The pen is on the notebook", "The cup is next to the laptop").
+        5. "objects": A list of up to 6 prominent, everyday objects in the image (especially stationary, utensils, food, tools, or items that a basic 80-class detector might miss).
+           Each object must have:
+           - "label": English vocabulary word (lowercase, singular, e.g., "pencil", "notebook", "eraser", "water bottle", "glasses").
+           - "vietnamese": Accurate Vietnamese meaning (e.g., "bút chì", "vở ghi chép", "cục tẩy").
+           - "cefr_level": Difficulty level ("A1", "A2", "B1", "B2", "C1").
+           - "confidence": Float between 0.70 and 0.99.
+           - "box_2d": [ymin, xmin, ymax, xmax] normalized integers on a 0 to 1000 scale.
+
+        Output ONLY the valid JSON structure matching this specification:
+        {
+          "scene": "...",
+          "scene_vietnamese": "...",
+          "description": "...",
+          "spatial_relationships": ["...", "..."],
+          "objects": [
+            {
+              "label": "...",
+              "vietnamese": "...",
+              "cefr_level": "...",
+              "confidence": 0.95,
+              "box_2d": [100, 200, 450, 600]
+            }
+          ]
+        }
+        """
+
+        try:
+            from google.genai import types
+            image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+            response = client.models.generate_content(
+                model=DEFAULT_GEMINI_MODEL,
+                contents=[prompt, image_part],
+            )
+            raw_text = response.text or ""
+            parsed = extract_json_from_ai(raw_text)
+            if isinstance(parsed, dict) and "objects" in parsed:
+                return parsed
+            # Direct json parse attempt if extract_json_from_ai misses
+            json_match = re.search(r"\{[\s\S]*\}", raw_text)
+            if json_match:
+                return json.loads(json_match.group(0))
+        except Exception as e:
+            logger.warning(f"Gemini Vision analysis call failed: {e}")
+        return None
+
     @spaces.GPU
     def detect_objects(
         self,
         image_path: str | Path,
         conf_threshold: float = 0.35,
     ) -> Tuple[List[str], str | None, List[Dict[str, Any]]]:
+        """Backward-compatible wrapper executing the default auto hybrid pipeline."""
+        labels, output_path, detected_objects, _ = self.detect_hybrid(
+            image_path=image_path,
+            scan_mode="auto",
+            conf_threshold=conf_threshold,
+        )
+        return labels, output_path, detected_objects
+
+    @spaces.GPU
+    def detect_hybrid(
+        self,
+        image_path: str | Path,
+        scan_mode: str = "auto",
+        conf_threshold: float = 0.35,
+    ) -> Tuple[List[str], str | None, List[Dict[str, Any]], Dict[str, Any]]:
         """
-        Detect objects with:
-        1. EXIF orientation correction.
-        2. Bounding boxes & confidence extraction.
-        3. Automated object cropping for visual vocabulary flashcards.
+        Phase 2 Hybrid Detection:
+        Combines local YOLO11 prediction with Gemini 2.5 Flash Vision
+        for open-vocabulary detection and spatial scene reasoning.
+
+        Args:
+            image_path: Path to target image.
+            scan_mode: "auto" (default: runs YOLO, invokes Gemini if <2 objects),
+                       "fast" (YOLO only), or "deep" (always runs both).
+            conf_threshold: Confidence threshold for YOLO detection.
 
         Returns:
-            unique_labels: List of unique object labels.
+            unique_labels: List of English vocabulary labels.
             annotated_path: Path to the annotated result image.
-            detected_objects: List of structured detection records.
+            detected_objects: Structured records with crops, CEFR, and source.
+            scene_context: Environment and spatial relationships metadata.
         """
         path_obj = Path(image_path)
         img = self.normalize_image_orientation(path_obj)
         if img is None:
-            return [], None, []
+            return [], None, [], {"scene": "Unknown", "description": "", "spatial_relationships": []}
 
         h, w = img.shape[:2]
         runs_dir = MODEL_DIR / "runs"
@@ -90,23 +298,20 @@ class DetectAgent:
         detected_objects: List[Dict[str, Any]] = []
         raw_labels: List[str] = []
 
+        # 1. Process YOLO detections
         if results and len(results) > 0 and results[0].boxes is not None:
             for idx, box in enumerate(results[0].boxes):
                 class_id = int(box.cls[0])
-                label = str(self.model.names[class_id])
+                label = str(self.model.names[class_id]).lower()
                 confidence = float(box.conf[0])
                 raw_labels.append(label)
 
-                # Bounding box pixel coordinates
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-
-                # Clamp to image boundaries
                 x1 = max(0, min(x1, w - 1))
                 y1 = max(0, min(y1, h - 1))
                 x2 = max(x1 + 1, min(x2, w))
                 y2 = max(y1 + 1, min(y2, h))
 
-                # Add a 5% margin around the crop for visually pleasing framing
                 margin_x = int((x2 - x1) * 0.05)
                 margin_y = int((y2 - y1) * 0.05)
                 crop_x1 = max(0, x1 - margin_x)
@@ -115,7 +320,7 @@ class DetectAgent:
                 crop_y2 = min(h, y2 + margin_y)
 
                 cropped_img = img[crop_y1:crop_y2, crop_x1:crop_x2]
-                safe_label = re.sub(r"[^a-zA-Z0-9_-]", "_", label.lower())
+                safe_label = re.sub(r"[^a-zA-Z0-9_-]", "_", label)
                 crop_filename = f"{path_obj.stem}_crop_{idx + 1}_{safe_label}.jpg"
                 crop_path = crops_dir / crop_filename
 
@@ -132,24 +337,163 @@ class DetectAgent:
                     round(y2 / h, 4),
                 ]
 
+                meta = COCO_METADATA.get(label, {"vietnamese": label, "cefr": "A1"})
+
                 detected_objects.append({
                     "id": idx + 1,
                     "label": label,
+                    "vietnamese": meta.get("vietnamese", label),
                     "confidence": round(confidence, 3),
                     "confidence_percent": round(confidence * 100),
                     "box": [x1, y1, x2, y2],
                     "box_normalized": box_normalized,
                     "crop_url": crop_url,
+                    "cefr_level": meta.get("cefr", "A1"),
+                    "source": "yolo",
                 })
+
+        # 2. Prepare base annotated image
+        annotated_frame = results[0].plot() if (results and len(results) > 0) else img.copy()
+
+        # 3. Determine whether to invoke Gemini Vision (Hybrid Strategy)
+        should_call_gemini = False
+        if scan_mode == "deep":
+            should_call_gemini = True
+        elif scan_mode == "auto" and len(detected_objects) < 2:
+            should_call_gemini = True
+
+        scene_context: Dict[str, Any] = {
+            "scene": "General Environment",
+            "scene_vietnamese": "Không gian chung",
+            "description": "General setting with everyday objects.",
+            "spatial_relationships": [],
+        }
+
+        if should_call_gemini:
+            try:
+                # Read upright image bytes
+                with open(path_obj, "rb") as f:
+                    img_bytes = f.read()
+
+                gemini_data = self._call_gemini_vision_analysis(img_bytes)
+                if gemini_data:
+                    # Update scene context
+                    scene_context["scene"] = gemini_data.get("scene", "General Environment")
+                    scene_context["scene_vietnamese"] = gemini_data.get("scene_vietnamese", "Không gian chung")
+                    scene_context["description"] = gemini_data.get("description", "")
+                    scene_context["spatial_relationships"] = gemini_data.get("spatial_relationships", [])
+
+                    gemini_objects = gemini_data.get("objects", [])
+                    next_id = len(detected_objects) + 1
+
+                    for g_obj in gemini_objects:
+                        g_label = str(g_obj.get("label", "")).strip().lower()
+                        if not g_label:
+                            continue
+
+                        g_box_2d = g_obj.get("box_2d", [])
+                        if isinstance(g_box_2d, (list, tuple)) and len(g_box_2d) == 4:
+                            ymin, xmin, ymax, xmax = g_box_2d
+                            gx1 = int(max(0, min(w - 1, (xmin / 1000.0) * w)))
+                            gy1 = int(max(0, min(h - 1, (ymin / 1000.0) * h)))
+                            gx2 = int(max(gx1 + 1, min(w, (xmax / 1000.0) * w)))
+                            gy2 = int(max(gy1 + 1, min(h, (ymax / 1000.0) * h)))
+                        else:
+                            gx1, gy1, gx2, gy2 = 0, 0, w, h
+
+                        g_box = [gx1, gy1, gx2, gy2]
+
+                        # Check if matches an existing YOLO object
+                        matched_yolo = None
+                        for y_obj in detected_objects:
+                            if y_obj["source"] == "yolo":
+                                iou = calculate_iou(g_box, y_obj["box"])
+                                if iou > 0.35 or y_obj["label"].lower() == g_label:
+                                    matched_yolo = y_obj
+                                    break
+
+                        if matched_yolo:
+                            # Enrich YOLO object with Gemini Vietnamese translation and CEFR level
+                            if g_obj.get("vietnamese"):
+                                matched_yolo["vietnamese"] = g_obj["vietnamese"]
+                            if g_obj.get("cefr_level"):
+                                matched_yolo["cefr_level"] = g_obj["cefr_level"]
+                        else:
+                            # Create new object discovered by Gemini Flash
+                            safe_label = re.sub(r"[^a-zA-Z0-9_-]", "_", g_label)
+                            crop_filename = f"{path_obj.stem}_crop_{next_id}_{safe_label}.jpg"
+                            crop_path = crops_dir / crop_filename
+
+                            cropped_img = img[gy1:gy2, gx1:gx2]
+                            if cropped_img.size > 0:
+                                cv2.imwrite(str(crop_path), cropped_img)
+                                crop_url = get_relative_url(str(crop_path))
+                            else:
+                                crop_url = None
+
+                            conf = float(g_obj.get("confidence", 0.90))
+                            cefr = g_obj.get("cefr_level", "A1")
+                            vn_name = g_obj.get("vietnamese", g_label)
+
+                            detected_objects.append({
+                                "id": next_id,
+                                "label": g_label,
+                                "vietnamese": vn_name,
+                                "confidence": round(conf, 3),
+                                "confidence_percent": round(conf * 100),
+                                "box": g_box,
+                                "box_normalized": [
+                                    round(gx1 / w, 4),
+                                    round(gy1 / h, 4),
+                                    round(gx2 / w, 4),
+                                    round(gy2 / h, 4),
+                                ],
+                                "crop_url": crop_url,
+                                "cefr_level": cefr,
+                                "source": "gemini",
+                            })
+                            raw_labels.append(g_label)
+
+                            # Draw annotation on frame for Gemini open-vocabulary items
+                            # Cyan/Teal bounding box (BGR: 220, 180, 40)
+                            cv2.rectangle(annotated_frame, (gx1, gy1), (gx2, gy2), (220, 180, 40), 2)
+                            tag_text = f"{g_label} [{cefr}]"
+                            (text_w, text_h), baseline = cv2.getTextSize(tag_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                            cv2.rectangle(
+                                annotated_frame,
+                                (gx1, max(0, gy1 - text_h - 6)),
+                                (gx1 + text_w + 6, max(text_h + 6, gy1)),
+                                (220, 180, 40),
+                                -1,
+                            )
+                            cv2.putText(
+                                annotated_frame,
+                                tag_text,
+                                (gx1 + 3, max(text_h, gy1 - 3)),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5,
+                                (255, 255, 255),
+                                1,
+                                cv2.LINE_AA,
+                            )
+
+                            next_id += 1
+
+            except Exception as exc:
+                logger.warning(f"Hybrid Gemini Vision enrichment skipped due to error: {exc}")
+
+        # 4. Fallback scene context if not provided
+        if not scene_context.get("spatial_relationships") and len(detected_objects) >= 2:
+            first_label = detected_objects[0]["label"]
+            second_label = detected_objects[1]["label"]
+            scene_context["spatial_relationships"] = [
+                f"The {first_label} is visible in the scene along with the {second_label}."
+            ]
 
         unique_labels = list(dict.fromkeys(raw_labels))
 
+        # 5. Save final annotated image
         output_path = path_obj.parent / f"{path_obj.stem}_result{path_obj.suffix}"
-        if results and len(results) > 0:
-            annotated_frame = results[0].plot()
-            cv2.imwrite(str(output_path), annotated_frame)
-        else:
-            cv2.imwrite(str(output_path), img)
+        cv2.imwrite(str(output_path), annotated_frame)
 
-        return unique_labels, str(output_path), detected_objects
-
+        return unique_labels, str(output_path), detected_objects, scene_context
