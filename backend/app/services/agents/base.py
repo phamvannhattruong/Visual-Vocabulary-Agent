@@ -53,3 +53,30 @@ class Agent:
             **kwargs
         )
         return response.text
+
+    def stream_response(self, contents, **kwargs):
+        """
+        Sinh nội dung dạng stream thời gian thực (Server-Sent Events / Generator)
+        """
+        processed_contents = []
+        if isinstance(contents, list):
+            for item in contents:
+                if isinstance(item, dict) and "data" in item and "mime_type" in item:
+                    part = types.Part.from_bytes(
+                        data=item["data"],
+                        mime_type=item["mime_type"]
+                    )
+                    processed_contents.append(part)
+                else:
+                    processed_contents.append(item)
+        else:
+            processed_contents = contents
+
+        response_stream = self.native_client.models.generate_content_stream(
+            model=self.model_name,
+            contents=processed_contents,
+            **kwargs
+        )
+        for chunk in response_stream:
+            if chunk.text:
+                yield chunk.text

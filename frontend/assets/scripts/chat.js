@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let chatHistory = [];
     let currentSessionId = null;
     const API_ENDPOINT = "/api/v1/chat-bot";
+    const API_STREAM_ENDPOINT = "/api/v1/chat/stream";
 
     function escapeHtml(string) {
         return String(string)
@@ -291,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- KẾT THÚC LOGIC QUẢN LÝ LỊCH SỬ ---
 
-    // Xử lý gửi tin nhắn
+    // Xử lý gửi tin nhắn (Hỗ trợ True Streaming SSE theo thời gian thực và Auto Fallback)
     async function handleSendMessage() {
         if (!chatInput) return;
         
@@ -306,8 +307,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (sendBtn) sendBtn.disabled = true;
 
-        // 2. Tạo placeholder bot đang trả lời
-        const loadingMessageEl = appendMessage("bot", "Đang suy nghĩ...");
+        // 2. Tạo placeholder bot đang trả lời với Loading Indicator mượt mà
+        const botMessageEl = appendMessage("bot", "");
+        const botTextSpan = botMessageEl ? botMessageEl.querySelector(".bot-text") : null;
+        if (botTextSpan) {
+            botTextSpan.innerHTML = '<span class="typing-indicator" aria-label="Đang soạn câu trả lời"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Đang soạn câu trả lời...</span>';
+        }
 
         // 3. Chuẩn bị payload { messages: [...] }
         const currentMessages = [
@@ -315,8 +320,12 @@ document.addEventListener("DOMContentLoaded", () => {
             { role: "user", content: message }
         ];
 
+        let accumulatedReply = "";
+        let streamSucceeded = false;
+
         try {
-            const response = await fetch(API_ENDPOINT, {
+            // Thử gọi Server-Sent Events (SSE) Stream để chữ hiển thị ngay tức thì
+            const streamResponse = await fetch(API_STREAM_ENDPOINT, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -327,37 +336,102 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                const errDetail = errData.detail ? JSON.stringify(errData.detail) : response.statusText;
-                throw new Error(`Lỗi (${response.status}): ${errDetail}`);
+            if (streamResponse.ok && streamResponse.body && typeof streamResponse.body.getReader === "function") {
+                const reader = streamResponse.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                let hasReceivedFirstToken = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop(); // Giữ lại phần dư chưa kết thúc dòng
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+                        const dataStr = trimmed.slice(5).trim();
+                        if (dataStr === "[DONE]") {
+                            streamSucceeded = true;
+                            break;
+                        }
+
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            if (parsed.content) {
+                                if (!hasReceivedFirstToken) {
+                                    hasReceivedFirstToken = true;
+                                    if (botTextSpan) botTextSpan.textContent = "";
+                                }
+                                accumulatedReply += parsed.content;
+                                if (botTextSpan) {
+                                    botTextSpan.textContent = accumulatedReply;
+                                }
+                                scrollToBottom();
+                            }
+                        } catch (parseErr) {
+                            // Dòng json không đầy đủ, bỏ qua
+                        }
+                    }
+                }
+
+                if (accumulatedReply.trim()) {
+                    streamSucceeded = true;
+                }
             }
-
-            const data = await response.json();
-            const botResponse = data.reply || "Không nhận được phản hồi từ mô hình.";
-
-            // 4. Điền câu trả lời vào bong bóng chat
-            if (loadingMessageEl) {
-                const textSpan = loadingMessageEl.querySelector(".bot-text");
-                if (textSpan) textSpan.textContent = botResponse;
-            }
-
-            // 5. Cập nhật lịch sử hội thoại
-            chatHistory.push({ role: "user", content: message });
-            chatHistory.push({ role: "assistant", content: botResponse });
-
-            // 6. Lưu cuộc hội thoại vào localStorage và cập nhật giao diện
-            saveCurrentSession();
-
-        } catch (error) {
-            console.error("Lỗi khi gửi:", error);
-            if (loadingMessageEl) loadingMessageEl.remove();
-            appendMessage("system", `Lỗi kết nối máy chủ: ${error.message}`);
-        } finally {
-            if (sendBtn) sendBtn.disabled = false;
-            if (chatInput) chatInput.focus();
-            scrollToBottom();
+        } catch (streamErr) {
+            console.warn("SSE Streaming không khả dụng, chuyển sang chế độ REST chuẩn:", streamErr);
         }
+
+        // 4. Nếu Streaming thất bại hoặc trả về rỗng, tự động Fallback về API REST thông thường
+        if (!streamSucceeded || !accumulatedReply.trim()) {
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ 
+                        messages: currentMessages,
+                        session_id: currentSessionId
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    const errDetail = errData.detail ? JSON.stringify(errData.detail) : response.statusText;
+                    throw new Error(`Lỗi (${response.status}): ${errDetail}`);
+                }
+
+                const data = await response.json();
+                accumulatedReply = data.reply || "Không nhận được phản hồi từ mô hình.";
+
+                if (botTextSpan) {
+                    botTextSpan.textContent = accumulatedReply;
+                }
+                streamSucceeded = true;
+            } catch (error) {
+                console.error("Lỗi khi gửi:", error);
+                if (botMessageEl) botMessageEl.remove();
+                appendMessage("system", `Lỗi kết nối máy chủ: ${error.message}`);
+                return;
+            }
+        }
+
+        // 5. Cập nhật lịch sử hội thoại & lưu LocalStorage
+        if (streamSucceeded && accumulatedReply.trim()) {
+            chatHistory.push({ role: "user", content: message });
+            chatHistory.push({ role: "assistant", content: accumulatedReply });
+            saveCurrentSession();
+        }
+
+        if (sendBtn) sendBtn.disabled = false;
+        if (chatInput) chatInput.focus();
+        scrollToBottom();
     }
 
     // Lắng nghe phím Enter trong Textarea

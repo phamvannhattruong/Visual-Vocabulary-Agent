@@ -15,6 +15,20 @@ from PIL import Image, ImageOps
 from ultralytics import YOLO
 
 
+try:
+    import spaces
+except ImportError:
+    # Fallback mock for non-ZeroGPU environments (local / testing)
+    class _SpacesMock:
+        @staticmethod
+        def GPU(func=None, **kwargs):
+            if func is not None:
+                return func
+            def decorator(fn):
+                return fn
+            return decorator
+    spaces = _SpacesMock()
+
 class DetectAgent:
     def __init__(self, model_name: str = "yolo11n.pt"):
         self.model_path = MODEL_DIR / model_name
@@ -44,6 +58,7 @@ class DetectAgent:
         except Exception:
             return cv2.imread(str(image_path))
 
+    @spaces.GPU
     def detect_objects(
         self,
         image_path: str | Path,
