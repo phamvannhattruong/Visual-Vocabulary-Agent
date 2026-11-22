@@ -87,7 +87,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .primary-btn { background: var(--ink-primary); color: #FFFFFF; border: 1px solid var(--ink-primary); padding: 0.8rem 1.75rem; border-radius: var(--radius-soft); font-family: var(--font-sans); font-weight: 600; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.6rem; transition: all 0.2s ease; }
 .primary-btn:hover { background: #1E293B; box-shadow: 0 4px 14px rgba(9, 13, 22, 0.2); }
 #loader { text-align: center; padding: 3rem 1.5rem; }
-.spinner { width: 48px; height: 48px; border: 4px solid var(--border-hairline); border-top: 4px solid var(--accent-cobalt); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem auto; }
+.spinner { width: 48px; height: 48px; border: 4px solid var(--border-hairline); border-top-color: var(--accent-cobalt); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem auto; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 #loader p { font-size: 1rem; font-weight: 600; color: var(--ink-primary); }
 .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; }
@@ -95,10 +95,29 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .result-card .card-header h2 { font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
 .result-card .card-body { padding: 1.5rem; }
 #annotated-image { width: 100%; border-radius: var(--radius-soft); border: 1px solid var(--border-hairline); margin-bottom: 1.25rem; }
+.flashcards-section-header { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.75rem; }
+.flashcards-section-title { font-size: 0.95rem; font-weight: 700; color: var(--ink-primary); display: flex; align-items: center; gap: 0.5rem; }
+.objects-count-badge { background: var(--accent-cobalt-light); color: var(--accent-cobalt); font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; border: 1px solid #BFDBFE; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+.vocab-flashcard { background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--radius-soft); overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; display: flex; flex-direction: column; }
+.vocab-flashcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-flat); border-color: var(--accent-cobalt); }
+.card-thumb-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: var(--surface-subtle); overflow: hidden; }
+.card-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-thumb-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--ink-caption); }
+.card-conf-badge { position: absolute; top: 5px; right: 5px; background: rgba(9, 13, 22, 0.75); backdrop-filter: blur(4px); color: #FFFFFF; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; }
+.card-info { padding: 0.6rem 0.5rem 0.5rem 0.5rem; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; gap: 0.4rem; }
+.card-word { font-size: 0.88rem; font-weight: 700; color: var(--ink-primary); text-transform: capitalize; text-align: center; }
+.card-btn-row { display: flex; gap: 0.35rem; }
+.card-action-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.35rem 0.2rem; border-radius: var(--radius-sharp); font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border-hairline); background: var(--surface-page); color: var(--ink-body); cursor: pointer; transition: all 0.15s ease; font-family: var(--font-sans); }
+.card-action-btn:hover { background: var(--accent-cobalt-light); color: var(--accent-cobalt); border-color: var(--accent-cobalt); }
+.card-action-btn.practice-btn:hover { background: var(--accent-terracotta-light); color: var(--accent-terracotta); border-color: var(--accent-terracotta); }
+.quick-tags-section { margin-top: 1rem; border-top: 1px solid var(--border-hairline); padding-top: 0.75rem; }
+.quick-tags-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-caption); margin-bottom: 0.5rem; display: block; }
 .tag-container { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.tag-btn { background: var(--surface-subtle); border: 1px solid var(--border-hairline); padding: 0.4rem 0.85rem; border-radius: 9999px; font-size: 0.82rem; font-weight: 600; color: var(--ink-body); cursor: pointer; transition: all 0.15s ease; }
+.tag-btn { background: var(--surface-subtle); border: 1px solid var(--border-hairline); padding: 0.4rem 0.85rem; border-radius: 9999px; font-size: 0.82rem; font-weight: 600; color: var(--ink-body); cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.4rem; }
 .tag-btn:hover { background: var(--accent-cobalt-light); color: var(--accent-cobalt); border-color: var(--accent-cobalt); }
 .tag-btn.active { background: var(--accent-cobalt); color: #FFFFFF; border-color: var(--accent-cobalt); }
+.tag-action-icon { background: none; border: none; color: inherit; cursor: pointer; padding: 0 0.15rem; display: inline-flex; align-items: center; font-size: 0.8rem; }
 #lesson-content { font-size: 0.95rem; line-height: 1.7; color: var(--ink-body); }
 #lesson-content h3 { font-size: 1.4rem; color: var(--accent-cobalt); margin-bottom: 0.5rem; }
 #lesson-content ul { padding-left: 1.25rem; margin: 0.75rem 0; }
@@ -229,7 +248,22 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
                         <div class="card-body">
                             <!-- SVG placeholder avoids broken-image warning -->
                             <img id="annotated-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="Kết quả nhận diện YOLO">
-                            <div id="detected-tags" class="tag-container"></div>
+                            
+                            <!-- Visual Flashcards (Phase 1 Vision Upgrade) -->
+                            <div class="flashcards-section-header">
+                                <div class="flashcards-section-title">
+                                    <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                                    <span>Thẻ từ vựng trực quan (Visual Flashcards)</span>
+                                </div>
+                                <span id="objects-count-badge" class="objects-count-badge">0 đồ vật</span>
+                            </div>
+                            <div id="detected-cards-grid" class="cards-grid"></div>
+
+                            <!-- Quick tags -->
+                            <div class="quick-tags-section">
+                                <span class="quick-tags-label">Nhãn nhận diện:</span>
+                                <div id="detected-tags" class="tag-container"></div>
+                            </div>
                         </div>
                     </div>
 

@@ -369,7 +369,7 @@ h4 {
     width: 48px;
     height: 48px;
     border: 4px solid var(--border-hairline);
-    border-top: 4px solid var(--accent-cobalt);
+    border-top-color: var(--accent-cobalt);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 1rem auto;
@@ -423,6 +423,161 @@ h4 {
     margin-bottom: 1.25rem;
 }
 
+/* Visual Flashcards Section (Phase 1 Vision Upgrade) */
+.flashcards-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.flashcards-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.objects-count-badge {
+    background: var(--accent-cobalt-light);
+    color: var(--accent-cobalt);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid #BFDBFE;
+}
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.vocab-flashcard {
+    background: var(--surface-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-soft);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.vocab-flashcard:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-flat);
+    border-color: var(--accent-cobalt);
+}
+
+.card-thumb-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--surface-subtle);
+    overflow: hidden;
+}
+
+.card-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.card-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-caption);
+}
+
+.card-conf-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(9, 13, 22, 0.75);
+    backdrop-filter: blur(4px);
+    color: #FFFFFF;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+.card-info {
+    padding: 0.6rem 0.5rem 0.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.card-word {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    text-transform: capitalize;
+    text-align: center;
+}
+
+.card-btn-row {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.card-action-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.2rem;
+    border-radius: var(--radius-sharp);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-page);
+    color: var(--ink-body);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-sans);
+}
+
+.card-action-btn:hover {
+    background: var(--accent-cobalt-light);
+    color: var(--accent-cobalt);
+    border-color: var(--accent-cobalt);
+}
+
+.card-action-btn.practice-btn:hover {
+    background: var(--accent-terracotta-light);
+    color: var(--accent-terracotta);
+    border-color: var(--accent-terracotta);
+}
+
+/* Quick Tags Section */
+.quick-tags-section {
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-hairline);
+    padding-top: 0.75rem;
+}
+
+.quick-tags-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-caption);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
 /* Tag Chips */
 .tag-container {
     display: flex;
@@ -440,6 +595,9 @@ h4 {
     color: var(--ink-body);
     cursor: pointer;
     transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .tag-btn:hover {
@@ -452,6 +610,17 @@ h4 {
     background: var(--accent-cobalt);
     color: #FFFFFF;
     border-color: var(--accent-cobalt);
+}
+
+.tag-action-icon {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0 0.15rem;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
 }
 
 /* AI Lesson Content Area */
