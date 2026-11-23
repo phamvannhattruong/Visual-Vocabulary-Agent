@@ -294,6 +294,32 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 
             <!-- Results Section -->
             <section id="results-section" class="hidden">
+                <!-- Learner Long-Term Memory Banner (Agent Memory Upgrade) -->
+                <div id="memory-banner" class="memory-banner hidden">
+                    <div class="memory-header">
+                        <div class="memory-badge">
+                            <i class="fa-solid fa-brain" aria-hidden="true"></i>
+                            <span>Hồ sơ Trí nhớ Cá nhân hóa</span>
+                        </div>
+                        <span class="memory-level-tag" id="memory-level-tag">Cấp độ: A1</span>
+                    </div>
+                    <div class="memory-stats-row">
+                        <div class="memory-stat-item">
+                            <span class="stat-number" id="memory-vocab-count">0</span>
+                            <span class="stat-label">Từ đã tích lũy</span>
+                        </div>
+                        <div class="memory-stat-item">
+                            <span class="stat-number" id="memory-lessons-count">0</span>
+                            <span class="stat-label">Bài học hoàn thành</span>
+                        </div>
+                        <div class="memory-stat-item">
+                            <span class="stat-number text-amber" id="memory-weak-count">0</span>
+                            <span class="stat-label">Từ cần củng cố</span>
+                        </div>
+                    </div>
+                    <p id="memory-recommendation" class="memory-recommendation"></p>
+                </div>
+
                 <!-- Scene Context Banner (Phase 2 Upgrade) -->
                 <div id="scene-banner" class="scene-banner hidden">
                     <div class="scene-header">
