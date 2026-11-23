@@ -129,6 +129,58 @@ class TestArchitectureAndRoutes(unittest.TestCase):
         self.assertEqual(DEFAULT_GEMINI_MODEL, "gemini-2.5-flash")
         self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.pt")
 
+    def test_image_learning_log_phase2_db_persistence(self):
+        """Verify image learning log stores and retrieves Phase 2 metadata correctly."""
+        import json
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from backend.app.db.base import Base
+        from backend.app.db.models import ImageLearningLog
+        from backend.app.db.crud import log_image_learning, get_image_logs
+
+        test_engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=test_engine)
+        TestSession = sessionmaker(bind=test_engine)
+
+        with TestSession() as db:
+            log_entry = log_image_learning(
+                db=db,
+                file_name="test_scene.jpg",
+                detected_labels=["laptop", "cup"],
+                annotated_img_url="/uploads/test_scene_annotated.jpg",
+                lesson_context="Here is your lesson.",
+                quiz_data={"question": "What is on the desk?", "options": ["laptop", "apple"], "answer": "laptop"},
+                scan_mode="deep",
+                detected_objects=[
+                    {"id": 1, "label": "laptop", "cefr_level": "A1", "source": "yolo"},
+                    {"id": 2, "label": "cup", "cefr_level": "A1", "source": "gemini"},
+                ],
+                scene_context={
+                    "scene": "Workspace",
+                    "scene_vietnamese": "Góc làm việc",
+                    "description": "Modern desk with a laptop and a coffee cup.",
+                    "spatial_relationships": ["The cup is next to the laptop."],
+                },
+            )
+            self.assertIsNotNone(log_entry.id)
+            self.assertEqual(log_entry.scan_mode, "deep")
+
+            logs = get_image_logs(db=db, limit=10)
+            self.assertEqual(len(logs), 1)
+            saved = logs[0]
+            self.assertEqual(saved.file_name, "test_scene.jpg")
+            self.assertEqual(saved.scan_mode, "deep")
+
+            # Verify JSON deserialization of Phase 2 columns
+            objects = json.loads(saved.detected_objects)
+            self.assertEqual(len(objects), 2)
+            self.assertEqual(objects[0]["label"], "laptop")
+            self.assertEqual(objects[1]["source"], "gemini")
+
+            scene = json.loads(saved.scene_context)
+            self.assertEqual(scene["scene"], "Workspace")
+            self.assertEqual(scene["spatial_relationships"], ["The cup is next to the laptop."])
+
 
 if __name__ == "__main__":
     unittest.main()
