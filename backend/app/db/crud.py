@@ -26,6 +26,35 @@ def get_or_create_user(db: Session, username: str) -> User:
     return user
 
 
+def resolve_user_id(db: Session, user_id: Optional[int] = None) -> Optional[int]:
+    """Ensure a valid user exists in User table to satisfy FK constraints."""
+    try:
+        if user_id is not None:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                return user.id
+            user = User(username=f"learner_{user_id}")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user.id
+        else:
+            user = db.query(User).first()
+            if not user:
+                user = User(username="learner_default")
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            return user.id if user else None
+    except Exception:
+        db.rollback()
+        try:
+            any_user = db.query(User).first()
+            return any_user.id if any_user else None
+        except Exception:
+            return None
+
+
 # ---------------------------------------------------------
 # Synchronous Logging Functions (using provided Session)
 # ---------------------------------------------------------
@@ -92,8 +121,10 @@ def log_image_learning(
     else:
         scene_str = None
 
+    valid_user_id = resolve_user_id(db, user_id)
+
     image_log = ImageLearningLog(
-        user_id=user_id,
+        user_id=valid_user_id,
         file_name=file_name,
         scan_mode=scan_mode or "auto",
         detected_labels=labels_str,
@@ -300,11 +331,7 @@ def get_user_learning_memory(
     3. Familiar physical environments and scenes visited.
     4. Adaptive CEFR progression estimation.
     """
-    target_user_id = user_id
-    if target_user_id is None:
-        first_user = db.query(User).order_by(User.id.asc()).first()
-        if first_user:
-            target_user_id = first_user.id
+    target_user_id = resolve_user_id(db, user_id)
 
     default_memory = {
         "user_id": target_user_id,
@@ -322,10 +349,12 @@ def get_user_learning_memory(
         recent_scenes = []
         seen_scenes = set()
 
-        # 1. Query past image learning logs
+        # 1. Query past image learning logs (for this user, or guest logs where user_id is NULL)
         img_query = db.query(ImageLearningLog)
         if target_user_id is not None:
-            img_query = img_query.filter(ImageLearningLog.user_id == target_user_id)
+            img_query = img_query.filter(
+                (ImageLearningLog.user_id == target_user_id) | (ImageLearningLog.user_id.is_(None))
+            )
         img_logs = img_query.order_by(desc(ImageLearningLog.created_at)).limit(limit_recent).all()
 
         for log in img_logs:
@@ -368,7 +397,9 @@ def get_user_learning_memory(
         # 2. Query pronunciation logs to identify mastery vs weakness
         pron_query = db.query(PronunciationLog)
         if target_user_id is not None:
-            pron_query = pron_query.filter(PronunciationLog.user_id == target_user_id)
+            pron_query = pron_query.filter(
+                (PronunciationLog.user_id == target_user_id) | (PronunciationLog.user_id.is_(None))
+            )
         pron_logs = pron_query.order_by(desc(PronunciationLog.created_at)).limit(limit_recent).all()
 
         weak_words = set()

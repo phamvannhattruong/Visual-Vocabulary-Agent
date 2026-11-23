@@ -252,8 +252,14 @@ function renderResults(data) {
             objectsCountBadge.textContent = `${objects.length} đồ vật`;
         }
 
-        const knownSet = new Set((data.user_memory?.known_vocabulary || []).map(w => w.toLowerCase()));
-        const weakSet = new Set((data.user_memory?.weak_pronunciation_words || []).map(w => w.toLowerCase()));
+        const knownSet = new Set((data.user_memory?.known_vocabulary || []).map(w => String(w).toLowerCase().trim()));
+        const weakSet = new Set((data.user_memory?.weak_pronunciation_words || []).map(w => String(w).toLowerCase().trim()));
+
+        console.log('[AGENT MEMORY DEBUG]', {
+            user_memory: data.user_memory,
+            known_words: Array.from(knownSet),
+            current_objects: objects.map(o => o.label)
+        });
 
         if (objects.length > 0) {
             objects.forEach(obj => {
@@ -272,7 +278,7 @@ function renderResults(data) {
                     ? `<span class="card-source-badge source-gemini" title="Nhận diện bởi Gemini 2.5 Flash"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI</span>`
                     : `<span class="card-source-badge source-yolo" title="Nhận diện bởi YOLO11"><i class="fa-solid fa-bolt" aria-hidden="true"></i> YOLO</span>`;
 
-                const wordLower = (obj.label || '').toLowerCase();
+                const wordLower = String(obj.label || '').toLowerCase().trim();
                 let memoryBadge = '';
                 if (weakSet.has(wordLower)) {
                     memoryBadge = `<span class="card-memory-badge memory-reinforce" title="Từ này bạn từng phát âm chưa chuẩn, cần ôn lại"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Cần luyện</span>`;
