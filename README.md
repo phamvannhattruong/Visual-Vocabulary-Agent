@@ -300,11 +300,11 @@ Hệ thống được thiết kế với độ tin cậy cao (**High Resilience*
 
 | Nhóm chức năng | Phương thức | Đường dẫn API | Mô tả |
 | :--- | :---: | :--- | :--- |
-| **Phân tích hình ảnh** | `POST` | `/api/v1/analyze` | Tải ảnh lên, nhận diện vật thể bằng YOLO và sinh nội dung bài học |
+| **Phân tích hình ảnh** | `POST` | `/api/v1/analyze` | Tải ảnh lên, nhận diện vật thể bằng kiến trúc Hybrid (YOLO11 + Gemini 2.5 Flash Vision), hiểu bối cảnh không gian và sinh bài học theo chế độ quét (`auto`, `fast`, `deep`) |
 | **Đánh giá phát âm** | `POST` | `/api/v1/evaluate-pronunciation` | Upload file ghi âm để chấm điểm phát âm từ vựng |
 | **Gia sư AI Chat** | `POST` | `/api/v1/chat` | Trò chuyện với AI Tutor, nhận giải thích phát âm và ngữ pháp |
 | **Chat Streaming** | `POST` | `/api/v1/chat/stream` | Stream phản hồi câu trả lời của AI theo thời gian thực |
-| **Nhật ký bài học** | `GET` | `/api/v1/logs/learning` | Lấy danh sách lịch sử phân tích ảnh và từ vựng đã học |
+| **Nhật ký bài học** | `GET` | `/api/v1/logs/learning` | Lấy danh sách lịch sử phân tích ảnh, bối cảnh không gian, scan mode và flashcard từ vựng đã lưu |
 | **Nhật ký phát âm** | `GET` | `/api/v1/logs/pronunciation` | Lấy danh sách kết quả luyện đọc và điểm số |
 | **Kiểm tra kết nối** | `GET` | `/api/v1/logs/status` | Kiểm tra tình trạng kết nối CSDL và danh sách bảng hoạt động |
 
@@ -313,9 +313,10 @@ Hệ thống được thiết kế với độ tin cậy cao (**High Resilience*
 ## 10. Lộ trình phát triển (Roadmap)
 
 - [x] Tích hợp Computer Vision nhận diện vật thể YOLO11n.
+- [x] **Nâng cấp Vision Agent Phase 2:** Kiến trúc Hybrid YOLO11 + Gemini 2.5 Flash Vision, 3 chế độ quét (`auto`/`fast`/`deep`), hiểu bối cảnh không gian và thẻ học flashcard trực quan kèm CEFR.
 - [x] Tích hợp Google Gemini Flash tạo bài học ngữ cảnh và Chatbot gia sư.
 - [x] Xây dựng bảng tra cứu 44 âm chuẩn IPA và TTS audio.
-- [x] Cơ chế chuyển đổi CSDL linh hoạt (SQL Server $\leftrightarrow$ SQLite).
+- [x] Cơ chế chuyển đổi CSDL linh hoạt (SQL Server $\leftrightarrow$ SQLite) lưu trữ toàn diện nhật ký học tập.
 - [ ] **Theo dõi khẩu hình miệng thời gian thực (Lip-Tracking):** Ứng dụng MediaPipe Face Mesh phân tích chuyển động môi và góc mở hàm khi phát âm qua Webcam.
 - [ ] **Thuật toán Lặp lại ngắt quãng (Spaced Repetition System - SRS):** Tự động nhắc nhở ôn tập từ vựng theo đường cong quên lãng Ebbinghaus.
 - [ ] **Xác thực người dùng & Đồng bộ đám mây:** Đăng nhập an toàn qua OAuth2/JWT và lưu trữ tiến độ cá nhân hóa.
