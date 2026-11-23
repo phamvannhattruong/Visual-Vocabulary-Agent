@@ -148,6 +148,8 @@ analyzeBtn.addEventListener('click', async () => {
     const formData = new FormData();
     formData.append('file', currentFile);
     formData.append('scan_mode', getSelectedScanMode());
+    const savedUserId = localStorage.getItem('vva_user_id') || '1';
+    formData.append('user_id', savedUserId);
 
     try {
         const response = await fetch('/api/v1/analyze', {
@@ -172,6 +174,45 @@ analyzeBtn.addEventListener('click', async () => {
 function renderResults(data) {
     resultsSection.classList.remove('hidden');
     annotatedImage.src = data.annotated_img_url + '?t=' + new Date().getTime();
+
+    // -1. Render Learner Long-Term Memory Profile (Agent Memory Upgrade)
+    const memoryBanner = document.getElementById('memory-banner');
+    const memoryLevelTag = document.getElementById('memory-level-tag');
+    const memoryVocabCount = document.getElementById('memory-vocab-count');
+    const memoryLessonsCount = document.getElementById('memory-lessons-count');
+    const memoryWeakCount = document.getElementById('memory-weak-count');
+    const memoryRecommendation = document.getElementById('memory-recommendation');
+
+    if (memoryBanner && data.user_memory) {
+        const mem = data.user_memory;
+        memoryBanner.classList.remove('hidden');
+        if (memoryLevelTag) memoryLevelTag.textContent = `Cấp độ: ${mem.learner_level || 'A1'}`;
+        if (memoryVocabCount) memoryVocabCount.textContent = mem.known_vocabulary_count || (mem.known_vocabulary ? mem.known_vocabulary.length : 0);
+        if (memoryLessonsCount) memoryLessonsCount.textContent = mem.total_lessons || 0;
+        if (memoryWeakCount) memoryWeakCount.textContent = (mem.weak_pronunciation_words || []).length;
+
+        if (memoryRecommendation) {
+            const knownSet = new Set((mem.known_vocabulary || []).map(w => w.toLowerCase()));
+            const weakSet = new Set((mem.weak_pronunciation_words || []).map(w => w.toLowerCase()));
+            const detectedWords = (data.detected_objects || []).map(o => (o.label || '').toLowerCase());
+            const newWordsInImage = detectedWords.filter(w => !knownSet.has(w));
+            const weakWordsInImage = detectedWords.filter(w => weakSet.has(w));
+
+            let recText = 'Chào mừng bạn quay lại! ';
+            if (weakWordsInImage.length > 0) {
+                recText += `Bức ảnh có từ <strong>${weakWordsInImage.join(', ')}</strong> bạn từng phát âm chưa chuẩn, Agent đã ưu tiên củng cố bài học cho bạn!`;
+            } else if (newWordsInImage.length > 0) {
+                recText += `Agent phát hiện <strong>${newWordsInImage.length} từ vựng mới</strong> trong ảnh để giúp bạn mở rộng vốn từ.`;
+            } else if (mem.total_lessons > 0) {
+                recText += `Các từ trong ảnh đều đã quen thuộc với bạn. Agent tập trung củng cố câu ví dụ và giới từ không gian!`;
+            } else {
+                recText = 'Chào mừng bạn bắt đầu hành trình học từ vựng trực quan! Hãy tích lũy vốn từ qua từng bức ảnh đời thực.';
+            }
+            memoryRecommendation.innerHTML = `<i class="fa-solid fa-lightbulb" style="color: #3B82F6; margin-right: 0.35rem;" aria-hidden="true"></i> ${recText}`;
+        }
+    } else if (memoryBanner) {
+        memoryBanner.classList.add('hidden');
+    }
 
     // 0. Render Scene Context Banner (Phase 2 Upgrade)
     const sceneBanner = document.getElementById('scene-banner');
@@ -211,6 +252,9 @@ function renderResults(data) {
             objectsCountBadge.textContent = `${objects.length} đồ vật`;
         }
 
+        const knownSet = new Set((data.user_memory?.known_vocabulary || []).map(w => w.toLowerCase()));
+        const weakSet = new Set((data.user_memory?.weak_pronunciation_words || []).map(w => w.toLowerCase()));
+
         if (objects.length > 0) {
             objects.forEach(obj => {
                 const card = document.createElement('div');
@@ -228,6 +272,16 @@ function renderResults(data) {
                     ? `<span class="card-source-badge source-gemini" title="Nhận diện bởi Gemini 2.5 Flash"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI</span>`
                     : `<span class="card-source-badge source-yolo" title="Nhận diện bởi YOLO11"><i class="fa-solid fa-bolt" aria-hidden="true"></i> YOLO</span>`;
 
+                const wordLower = (obj.label || '').toLowerCase();
+                let memoryBadge = '';
+                if (weakSet.has(wordLower)) {
+                    memoryBadge = `<span class="card-memory-badge memory-reinforce" title="Từ này bạn từng phát âm chưa chuẩn, cần ôn lại"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Cần luyện</span>`;
+                } else if (knownSet.has(wordLower)) {
+                    memoryBadge = `<span class="card-memory-badge memory-reviewed" title="Từ này bạn đã từng học"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Đã học</span>`;
+                } else {
+                    memoryBadge = `<span class="card-memory-badge memory-new" title="Từ vựng mới tinh đối với bạn!"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Mới</span>`;
+                }
+
                 const vnMeaning = obj.vietnamese 
                     ? `<span class="card-vietnamese" title="${obj.vietnamese}">${obj.vietnamese}</span>` 
                     : '';
@@ -236,6 +290,7 @@ function renderResults(data) {
                     <div class="card-thumb-wrap">
                         ${thumbHtml}
                         ${sourceBadge}
+                        ${memoryBadge}
                         <span class="card-conf-badge">${confPercent}%</span>
                     </div>
                     <div class="card-info">
