@@ -329,23 +329,31 @@ class DetectAgent:
         }
         """
 
-        try:
-            from google.genai import types
-            image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
-            response = client.models.generate_content(
-                model=DEFAULT_GEMINI_MODEL,
-                contents=[prompt, image_part],
-            )
-            raw_text = response.text or ""
-            parsed = extract_json_from_ai(raw_text)
-            if isinstance(parsed, dict) and "objects" in parsed:
-                return parsed
-            # Direct json parse attempt if extract_json_from_ai misses
-            json_match = re.search(r"\{[\s\S]*\}", raw_text)
-            if json_match:
-                return json.loads(json_match.group(0))
-        except Exception as e:
-            logger.warning(f"Gemini Vision analysis call failed: {e}")
+        candidate_models = []
+        preferred_models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", DEFAULT_GEMINI_MODEL]
+        for m in preferred_models:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
+
+        for m in candidate_models:
+            try:
+                from google.genai import types
+                image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+                response = client.models.generate_content(
+                    model=m,
+                    contents=[prompt, image_part],
+                )
+                raw_text = response.text or ""
+                parsed = extract_json_from_ai(raw_text)
+                if isinstance(parsed, dict) and "objects" in parsed:
+                    return parsed
+                # Direct json parse attempt if extract_json_from_ai misses
+                json_match = re.search(r"\{[\s\S]*\}", raw_text)
+                if json_match:
+                    return json.loads(json_match.group(0))
+            except Exception as e:
+                logger.warning(f"Gemini Vision analysis call with model {m} failed: {e}")
+                continue
         return None
 
     @spaces.GPU

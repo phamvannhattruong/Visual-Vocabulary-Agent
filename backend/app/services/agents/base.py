@@ -45,13 +45,31 @@ class Agent:
         else:
             processed_contents = contents
 
-        # 2. Thực hiện gọi API với dữ liệu đã được chuẩn hóa
-        response = self.native_client.models.generate_content(
-            model=self.model_name,
-            contents=processed_contents,
-            **kwargs
-        )
-        return response.text
+        # 2. Thực hiện gọi API với danh sách candidate models tự động chuyển đổi khi lỗi quota (429) hoặc model không khả dụng (404)
+        candidate_models = []
+        preferred_models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", self.model_name]
+        for m in preferred_models:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
+
+        last_error = None
+        for m in candidate_models:
+            try:
+                response = self.native_client.models.generate_content(
+                    model=m,
+                    contents=processed_contents,
+                    **kwargs
+                )
+                if response and hasattr(response, "text") and response.text:
+                    self.model_name = m  # stick to working model
+                    return response.text
+            except Exception as e:
+                last_error = e
+                continue
+
+        if last_error:
+            raise last_error
+        return ""
 
     def stream_response(self, contents, **kwargs):
         """

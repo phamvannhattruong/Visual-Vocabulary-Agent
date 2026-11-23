@@ -5,8 +5,8 @@ from backend.app.services.agents.base import Agent
 
 
 class TeacherAgent(Agent):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def generate_learning_content(
         self,
@@ -194,34 +194,185 @@ Style Guidelines:
 """
         return self.generate_response(prompts)
 
-    def generate_synonym_lesson(self, synonym_word: str) -> Dict[str, Any]:
-        """Dynamically generate a mini-lesson for a synonym word as fallback."""
-        prompt = f"""
-Provide a mini-lesson in JSON format for the English vocabulary word '{synonym_word}'.
-The response MUST be valid JSON with keys:
-- "word": "{synonym_word}"
-- "ipa": IPA phonetic transcription
-- "meaning_vn": Vietnamese translation
-- "example": Natural bilingual example sentence (English and Vietnamese)
+    def build_offline_lesson(
+        self,
+        object_detected: List[str] | None,
+        scene_context: Optional[Dict[str, Any]] = None,
+        user_memory: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Graceful local lesson generator when network or external AI quotas are unavailable.
+        Guarantees that learners always receive high quality educational content.
+        """
+        if not object_detected:
+            return "Chào mừng bạn! Hãy tải lên một bức ảnh rõ nét để khám phá từ vựng tiếng Anh nhé."
 
-Example:
-{{
-  "word": "flask",
-  "ipa": "/flɑːsk/",
-  "meaning_vn": "Bình giữ nhiệt, bình đựng nước du lịch",
-  "example": "He carried a flask of hot tea. (Anh ấy mang theo một bình trà nóng.)"
-}}
-"""
-        try:
-            raw = self.generate_response(prompt)
-            match = re.search(r"\{.*?\}", raw, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-        except Exception:
-            pass
-        return {
-            "word": synonym_word,
-            "ipa": "",
-            "meaning_vn": "Từ đồng nghĩa tiếng Anh",
-            "example": f"This is an example sentence using {synonym_word}.",
+        offline_db: Dict[str, Dict[str, str]] = {
+            "person": {
+                "ipa": "/ˈpɜː.sən/",
+                "meaning": "Người, một cá nhân",
+                "cefr": "A1",
+                "example": "A person is traveling along the road. (Một người đang di chuyển dọc theo con đường.)",
+                "synonym": "individual",
+                "synonym_ipa": "/ˌɪn.dɪˈvɪdʒ.u.əl/",
+                "synonym_meaning": "Cá nhân, người riêng biệt",
+                "synonym_example": "Every individual has unique strengths. (Mỗi cá nhân đều có thế mạnh riêng.)",
+            },
+            "motorcycle": {
+                "ipa": "/ˈməʊ.təˌsaɪ.kəl/",
+                "meaning": "Xe máy, xe mô tô",
+                "cefr": "A2",
+                "example": "He rides his motorcycle to work every day. (Anh ấy đi xe máy đi làm mỗi ngày.)",
+                "synonym": "motorbike",
+                "synonym_ipa": "/ˈməʊ.tə.baɪk/",
+                "synonym_meaning": "Xe gắn máy",
+                "synonym_example": "She parked her motorbike by the curb. (Cô ấy đỗ xe gắn máy ở lề đường.)",
+            },
+            "car": {
+                "ipa": "/kɑːr/",
+                "meaning": "Xe ô tô, xe hơi",
+                "cefr": "A1",
+                "example": "The family travels by car. (Gia đình đi du lịch bằng ô tô.)",
+                "synonym": "automobile",
+                "synonym_ipa": "/ˈɔː.tə.mə.biːl/",
+                "synonym_meaning": "Xe hơi, xe cơ giới",
+                "synonym_example": "The automobile industry is advancing. (Ngành công nghiệp ô tô đang phát triển.)",
+            },
+            "bottle": {
+                "ipa": "/ˈbɒt.əl/",
+                "meaning": "Cái chai, cái bình đựng nước",
+                "cefr": "A1",
+                "example": "Please fill the bottle with fresh water. (Làm ơn hãy đổ đầy chai nước sạch.)",
+                "synonym": "flask",
+                "synonym_ipa": "/flɑːsk/",
+                "synonym_meaning": "Bình giữ nhiệt, bình đựng nước nhỏ gọn",
+                "synonym_example": "He kept warm tea in his flask. (Anh ấy giữ trà ấm trong bình giữ nhiệt.)",
+            },
+            "cup": {
+                "ipa": "/kʌp/",
+                "meaning": "Cái cốc, cái tách",
+                "cefr": "A1",
+                "example": "She is drinking warm tea from a cup. (Cô ấy đang uống trà ấm từ chiếc cốc.)",
+                "synonym": "mug",
+                "synonym_ipa": "/mʌɡ/",
+                "synonym_meaning": "Cốc vại lớn có quai",
+                "synonym_example": "He poured coffee into a large mug. (Anh ấy rót cà phê vào một chiếc cốc vại lớn.)",
+            },
+            "laptop": {
+                "ipa": "/ˈlæp.tɒp/",
+                "meaning": "Máy tính xách tay",
+                "cefr": "A1",
+                "example": "He opened his laptop to start working. (Anh ấy mở máy tính xách tay để làm việc.)",
+                "synonym": "notebook",
+                "synonym_ipa": "/ˈnəʊt.bʊk/",
+                "synonym_meaning": "Máy tính xách tay siêu mỏng",
+                "synonym_example": "She carried her notebook to the conference. (Cô ấy mang máy tính xách tay đến hội nghị.)",
+            },
         }
+
+        known = [str(k).lower().strip() for k in user_memory.get("known_vocabulary", [])] if user_memory else []
+        known_set = set(known)
+        clean_objs = [str(o).lower().strip() for o in object_detected]
+        new_objs = [o for o in clean_objs if o not in known_set]
+        reviewed_objs = [o for o in clean_objs if o in known_set]
+
+        # Build vocabulary sections
+        lesson_md = "Chào mừng bạn đến với **Visual Vocabulary Studio**! 🌟\n\n"
+        if scene_context and isinstance(scene_context, dict) and scene_context.get("scene"):
+            lesson_md += f"Bối cảnh nhận diện: **{scene_context.get('scene')}** ({scene_context.get('scene_vietnamese', '')})\n\n"
+
+        lesson_md += "### 📚 Bài học Từ vựng Thực tế:\n\n"
+        target_obj = clean_objs[0]
+
+        for obj in clean_objs[:3]:
+            info = offline_db.get(obj, {
+                "ipa": f"/{obj}/",
+                "meaning": f"Đồ vật: {obj}",
+                "cefr": "A1",
+                "example": f"This is an everyday {obj}. (Đây là một vật dụng quen thuộc.)",
+                "synonym": f"{obj}-related",
+                "synonym_ipa": f"/{obj}/",
+                "synonym_meaning": f"Từ liên quan đến {obj}",
+                "synonym_example": f"This relates to {obj}.",
+            })
+            lesson_md += f"#### **{obj.capitalize()}** `[{info['cefr']}]`\n"
+            lesson_md += f"- **Phiên âm IPA:** `{info['ipa']}`\n"
+            lesson_md += f"- **Nghĩa tiếng Việt:** {info['meaning']}\n"
+            lesson_md += f"- **Ví dụ câu:** {info['example']}\n\n"
+
+        # Prepositions section
+        if len(clean_objs) >= 2:
+            lesson_md += f"### 📍 Giới từ Chỉ Vị trí (Spatial Prepositions):\n"
+            lesson_md += f"- Trong bức ảnh, **{clean_objs[0]}** đang nằm **near / next to** (gần / bên cạnh) **{clean_objs[1]}**.\n\n"
+
+        # Quiz generation
+        target_info = offline_db.get(target_obj, {
+            "ipa": f"/{target_obj}/",
+            "meaning": f"Đồ vật {target_obj}",
+            "synonym": "item",
+            "synonym_ipa": "/ˈaɪ.təm/",
+            "synonym_meaning": "Món đồ, vật phẩm",
+            "synonym_example": "This is an important item. (Đây là một món đồ quan trọng.)",
+        })
+
+        if reviewed_objs:
+            rev_target = reviewed_objs[0]
+            rev_info = offline_db.get(rev_target, target_info)
+            quiz_json = {
+                "mode": "review_challenge",
+                "target_word": rev_target,
+                "questions": [
+                    {
+                        "id": 1,
+                        "type": "pronunciation",
+                        "question": f"Phiên âm IPA chuẩn của từ '{rev_target}' là gì?",
+                        "options": [rev_info["ipa"], f"/{rev_target}ing/", f"/un{rev_target}/"],
+                        "answer": rev_info["ipa"],
+                        "explanation": f"Từ '{rev_target}' có phiên âm chuẩn là {rev_info['ipa']}."
+                    },
+                    {
+                        "id": 2,
+                        "type": "meaning",
+                        "question": f"Trong tiếng Việt, từ '{rev_target}' có nghĩa chính xác nhất là gì?",
+                        "options": [rev_info["meaning"], "Cái bàn gỗ", "Quyển sách học"],
+                        "answer": rev_info["meaning"],
+                        "explanation": f"'{rev_target}' có nghĩa tiếng Việt là: {rev_info['meaning']}."
+                    },
+                    {
+                        "id": 3,
+                        "type": "synonym",
+                        "question": f"Từ nào sau đây gần nghĩa hoặc đồng nghĩa với từ '{rev_target}'?",
+                        "options": [rev_info["synonym"], "blanket", "window"],
+                        "answer": rev_info["synonym"],
+                        "explanation": f"'{rev_info['synonym']}' là từ gần nghĩa phù hợp nhất.",
+                        "synonym_lesson": {
+                            "word": rev_info["synonym"],
+                            "ipa": rev_info["synonym_ipa"],
+                            "meaning_vn": rev_info["synonym_meaning"],
+                            "example": rev_info["synonym_example"]
+                        }
+                    }
+                ]
+            }
+        else:
+            quiz_json = {
+                "mode": "single",
+                "target_word": target_obj,
+                "questions": [
+                    {
+                        "id": 1,
+                        "type": "comprehension",
+                        "question": f"Which sentence correctly describes the word '{target_obj}' in this scene?",
+                        "options": [
+                            target_info["example"],
+                            f"The {target_obj} is flying in the outer space.",
+                            f"I eat a {target_obj} for breakfast."
+                        ],
+                        "answer": target_info["example"],
+                        "explanation": f"Câu ví dụ chính xác là: {target_info['example']}"
+                    }
+                ]
+            }
+
+        lesson_md += f"\n[QUIZ_START]\n{json.dumps(quiz_json, ensure_ascii=False, indent=2)}\n[QUIZ_END]"
+        return lesson_md

@@ -76,8 +76,18 @@ async def analyze_image(
             labels, scene_context=scene_context, user_memory=user_memory
         )
         lesson_text, quiz_data = extract_quiz(raw_response)
-    except Exception:
-        lesson_text, quiz_data = "Sorry, I couldn't generate a lesson right now.", None
+    except Exception as exc:
+        import logging
+        logging.getLogger("uvicorn.error").warning(
+            f"TeacherAgent online generation error: {exc}. Activating robust local lesson generator."
+        )
+        try:
+            raw_response = get_teacher_agent().build_offline_lesson(
+                labels, scene_context=scene_context, user_memory=user_memory
+            )
+            lesson_text, quiz_data = extract_quiz(raw_response)
+        except Exception:
+            lesson_text, quiz_data = "Chào mừng bạn! Hãy tiếp tục khám phá các từ vựng thú vị nhé.", None
 
     annotated_url = get_relative_url(annotated_path)
     client_ip = http_request.client.host if (http_request and http_request.client) else None

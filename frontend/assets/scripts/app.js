@@ -44,13 +44,13 @@ let audioChunks = [];
 tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const tabId = btn.dataset.tab;
-        
+
         tabBtns.forEach(b => b.classList.remove('active'));
         tabContents.forEach(c => c.classList.remove('active'));
-        
+
         btn.classList.add('active');
         document.getElementById(`${tabId}-tab`).classList.add('active');
-        
+
         if (tabId === 'webcam') {
             startWebcam();
         } else {
@@ -117,7 +117,7 @@ captureBtn.addEventListener('click', () => {
     webcamCanvas.width = webcamVideo.videoWidth;
     webcamCanvas.height = webcamVideo.videoHeight;
     context.drawImage(webcamVideo, 0, 0);
-    
+
     webcamCanvas.toBlob((blob) => {
         currentFile = new File([blob], "capture.jpg", { type: "image/jpeg" });
         imagePreview.src = URL.createObjectURL(blob);
@@ -147,7 +147,7 @@ analyzeBtn.addEventListener('click', async () => {
 
     loader.classList.remove('hidden');
     resultsSection.classList.add('hidden');
-    
+
     const formData = new FormData();
     formData.append('file', currentFile);
     formData.append('scan_mode', getSelectedScanMode());
@@ -159,7 +159,7 @@ analyzeBtn.addEventListener('click', async () => {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
         if (data.success) {
             renderResults(data);
@@ -246,7 +246,7 @@ function renderResults(data) {
             sceneBanner.classList.add('hidden');
         }
     }
-    
+
     // 1. Render Flashcards from detected objects (Phase 1 & Phase 2 Vision Upgrades)
     if (detectedCardsGrid) {
         detectedCardsGrid.innerHTML = '';
@@ -270,8 +270,8 @@ function renderResults(data) {
                 card.className = 'vocab-flashcard';
                 card.dataset.label = obj.label;
                 const confPercent = obj.confidence_percent || Math.round((obj.confidence || 0) * 100);
-                const thumbHtml = obj.crop_url 
-                    ? `<img class="card-thumb-img" src="${obj.crop_url}?t=${new Date().getTime()}" alt="${obj.label}" loading="lazy">` 
+                const thumbHtml = obj.crop_url
+                    ? `<img class="card-thumb-img" src="${obj.crop_url}?t=${new Date().getTime()}" alt="${obj.label}" loading="lazy">`
                     : `<div class="card-thumb-placeholder"><i class="fa-solid fa-image"></i></div>`;
 
                 const cefrLevel = (obj.cefr_level || 'A1').toUpperCase();
@@ -291,8 +291,8 @@ function renderResults(data) {
                     memoryBadge = `<span class="card-memory-badge memory-new" title="Từ vựng mới tinh đối với bạn!"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Mới</span>`;
                 }
 
-                const vnMeaning = obj.vietnamese 
-                    ? `<span class="card-vietnamese" title="${obj.vietnamese}">${obj.vietnamese}</span>` 
+                const vnMeaning = obj.vietnamese
+                    ? `<span class="card-vietnamese" title="${obj.vietnamese}">${obj.vietnamese}</span>`
                     : '';
 
                 card.innerHTML = `
@@ -341,8 +341,8 @@ function renderResults(data) {
         const tag = document.createElement('div');
         tag.className = 'tag-btn';
         const objMeta = objectsMap[label.toLowerCase()];
-        const cefrTag = objMeta && objMeta.cefr_level 
-            ? `<span class="cefr-badge cefr-${objMeta.cefr_level.toLowerCase()} tag-cefr">${objMeta.cefr_level}</span>` 
+        const cefrTag = objMeta && objMeta.cefr_level
+            ? `<span class="cefr-badge cefr-${objMeta.cefr_level.toLowerCase()} tag-cefr">${objMeta.cefr_level}</span>`
             : '';
 
         tag.innerHTML = `
@@ -447,7 +447,7 @@ function renderQuiz(quiz) {
             badgeHtml = `<span class="quiz-type-badge"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> Câu hỏi ${qIdx + 1}</span>`;
         }
 
-        const targetLabel = (q.target_word || quiz.target_word) ? 
+        const targetLabel = (q.target_word || quiz.target_word) ?
             `<span class="quiz-item-target">${escapeHtml(q.target_word || quiz.target_word)}</span>` : '';
         header.innerHTML = `${badgeHtml}${targetLabel}`;
         card.appendChild(header);
@@ -647,7 +647,7 @@ recordBtn.onclick = async () => {
         audioChunks = [];
 
         mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-        
+
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
             sendForEvaluation(audioBlob);
@@ -675,15 +675,15 @@ async function sendForEvaluation(blob) {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         evaluationResult.classList.remove('hidden');
         evalScore.textContent = data.score || 0;
         evalFeedback.textContent = data.feedback || "No feedback available";
         evalTip.textContent = data.tip || "Keep practicing!";
         recordStatus.textContent = "Click to record again";
-        
+
     } catch (err) {
         console.error(err);
         recordStatus.textContent = "Evaluation failed";
