@@ -207,6 +207,33 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
             result = teacher.generate_learning_content(["cup", "laptop"], scene_context=scene_ctx)
             self.assertIn("Lesson with prepositions", result)
 
+    def test_teacher_agent_with_user_memory(self):
+        teacher = TeacherAgent()
+        user_mem = {
+            "learner_level": "A2",
+            "total_lessons": 8,
+            "known_vocabulary": ["book", "chair", "laptop"],
+            "weak_pronunciation_words": ["cup"],
+            "mastered_words": ["laptop"],
+        }
+        captured_prompts = []
+
+        def fake_generate(prompt):
+            captured_prompts.append(prompt)
+            return "Personalized Lesson [QUIZ_START]{}[QUIZ_END]"
+
+        with patch.object(teacher, "generate_response", side_effect=fake_generate):
+            result = teacher.generate_learning_content(["cup", "mouse"], user_memory=user_mem)
+            self.assertIn("Personalized Lesson", result)
+            self.assertEqual(len(captured_prompts), 1)
+            prompt_text = captured_prompts[0]
+            self.assertIn("Learner Long-Term Memory Profile", prompt_text)
+            self.assertIn("Estimated CEFR Level: A2", prompt_text)
+            self.assertIn("book, chair, laptop", prompt_text)
+            self.assertIn("cup", prompt_text)
+            self.assertIn("NOVELTY PREFERENCE", prompt_text)
+            self.assertIn("REINFORCE WEAK WORDS", prompt_text)
+
 
 if __name__ == "__main__":
     unittest.main()

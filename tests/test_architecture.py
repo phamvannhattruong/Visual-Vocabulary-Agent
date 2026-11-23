@@ -181,6 +181,75 @@ class TestArchitectureAndRoutes(unittest.TestCase):
             self.assertEqual(scene["scene"], "Workspace")
             self.assertEqual(scene["spatial_relationships"], ["The cup is next to the laptop."])
 
+    def test_user_learning_memory_profile(self):
+        """Verify get_user_learning_memory compiles past logs into an agent memory profile."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from backend.app.db.base import Base
+        from backend.app.db.crud import (
+            get_or_create_user,
+            log_image_learning,
+            log_pronunciation,
+            get_user_learning_memory,
+        )
+        from backend.app.schemas.learning import LearnerMemory
+
+        test_engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=test_engine)
+        TestSession = sessionmaker(bind=test_engine)
+
+        with TestSession() as db:
+            user = get_or_create_user(db, "learner_agent_test")
+
+            # Save 1 image log with objects
+            log_image_learning(
+                db=db,
+                file_name="desk.jpg",
+                detected_labels=["laptop", "cup", "pen"],
+                annotated_img_url="/uploads/desk.jpg",
+                lesson_context="Lesson text",
+                quiz_data={"question": "Q"},
+                scan_mode="auto",
+                scene_context={"scene": "Study Desk", "scene_vietnamese": "Bàn học"},
+                user_id=user.id,
+            )
+
+            # Save pronunciation logs
+            log_pronunciation(
+                db=db,
+                target_word="laptop",
+                score=88,
+                feedback="Excellent pronunciation",
+                tip="Keep it up",
+                user_id=user.id,
+            )
+            log_pronunciation(
+                db=db,
+                target_word="pen",
+                score=62,
+                feedback="Need more aspiration",
+                tip="Release more air",
+                user_id=user.id,
+            )
+
+            # Extract memory profile
+            memory_data = get_user_learning_memory(db=db, user_id=user.id)
+
+            self.assertEqual(memory_data["user_id"], user.id)
+            self.assertEqual(memory_data["total_lessons"], 1)
+            self.assertIn("laptop", memory_data["known_vocabulary"])
+            self.assertIn("cup", memory_data["known_vocabulary"])
+            self.assertIn("pen", memory_data["known_vocabulary"])
+            self.assertIn("pen", memory_data["weak_pronunciation_words"])
+            self.assertIn("laptop", memory_data["mastered_words"])
+            self.assertIn("Study Desk", memory_data["recent_scenes"])
+            self.assertEqual(memory_data["learner_level"], "A1")
+
+            # Validate against Pydantic schema
+            learner_memory_obj = LearnerMemory(**memory_data)
+            self.assertEqual(learner_memory_obj.known_vocabulary_count, 3)
+            self.assertEqual(len(learner_memory_obj.weak_pronunciation_words), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
