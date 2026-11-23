@@ -449,6 +449,8 @@ async function sendForEvaluation(blob) {
     const formData = new FormData();
     formData.append('audio_file', blob, 'recording.wav');
     formData.append('target_word', targetWordSpan.textContent);
+    const savedUserId = localStorage.getItem('vva_user_id') || '1';
+    formData.append('user_id', savedUserId);
 
     try {
         const response = await fetch('/api/v1/evaluate-pronunciation', {
