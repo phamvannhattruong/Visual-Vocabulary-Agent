@@ -74,7 +74,7 @@ async def analyze_image(
     annotated_url = get_relative_url(annotated_path)
     client_ip = http_request.client.host if (http_request and http_request.client) else None
 
-    # Persist analysis and lesson log in background
+    # Persist analysis and lesson log in background with Phase 2 metadata
     background_tasks.add_task(
         background_save_image_log,
         file_name=file.filename,
@@ -82,6 +82,9 @@ async def analyze_image(
         annotated_img_url=annotated_url,
         lesson_context=lesson_text,
         quiz_data=quiz_data,
+        scan_mode=scan_mode,
+        detected_objects=detected_objects,
+        scene_context=scene_context,
         user_id=user_id,
         ip_address=client_ip,
     )
