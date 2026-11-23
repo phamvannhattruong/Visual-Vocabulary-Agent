@@ -25,12 +25,25 @@ class SceneContext(BaseModel):
     spatial_relationships: List[str] = Field(default_factory=list, description="List of spatial relation sentences between objects")
 
 
+class LearnerMemory(BaseModel):
+    """Personalized learning memory extracted from persistent database history."""
+    user_id: Optional[int] = Field(None, description="User identifier")
+    total_lessons: int = Field(0, description="Total visual lessons completed")
+    known_vocabulary: List[str] = Field(default_factory=list, description="Previously encountered vocabulary words")
+    known_vocabulary_count: int = Field(0, description="Count of known words")
+    weak_pronunciation_words: List[str] = Field(default_factory=list, description="Words with past pronunciation score < 75")
+    mastered_words: List[str] = Field(default_factory=list, description="Words with past pronunciation score >= 80")
+    recent_scenes: List[str] = Field(default_factory=list, description="Recently visited physical scenes")
+    learner_level: str = Field("A1", description="Dynamic estimated CEFR level (A1, A2, B1)")
+
+
 class AnalyzeResponse(BaseModel):
     """Full API response contract for POST /api/v1/analyze."""
     file_name: str
     detected_label: List[str]
     detected_objects: List[DetectedObject]
     scene_context: Optional[SceneContext] = None
+    user_memory: Optional[LearnerMemory] = None
     annotated_img_url: Optional[str] = None
     lesson_context: str
     quiz: Optional[Dict[str, Any]] = None
