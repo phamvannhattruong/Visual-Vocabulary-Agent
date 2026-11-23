@@ -370,28 +370,82 @@ function renderResults(data) {
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function renderQuiz(quiz) {
     quizContainer.classList.remove('hidden');
     quizQuestion.textContent = quiz.question;
     quizOptions.innerHTML = '';
     quizFeedback.classList.add('hidden');
+    quizFeedback.innerHTML = '';
 
-    quiz.options.forEach(option => {
+    const letters = ['A', 'B', 'C', 'D', 'E'];
+
+    quiz.options.forEach((option, idx) => {
+        const letter = letters[idx] || String.fromCharCode(65 + idx);
         const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.textContent = option;
+        btn.type = 'button';
+        btn.className = 'quiz-option-btn';
+        btn.setAttribute('aria-label', `Đáp án ${letter}: ${option}`);
+        
+        btn.innerHTML = `
+            <span class="quiz-opt-letter">${letter}</span>
+            <span class="quiz-opt-text">${escapeHtml(option)}</span>
+            <span class="quiz-opt-icon"><i class="fa-regular fa-circle" aria-hidden="true"></i></span>
+        `;
+
         btn.onclick = () => {
-            const allBtns = quizOptions.querySelectorAll('.option-btn');
+            const allBtns = quizOptions.querySelectorAll('.quiz-option-btn, .option-btn');
             allBtns.forEach(b => b.disabled = true);
             
-            if (option === quiz.answer) {
+            const stateIcon = btn.querySelector('.quiz-opt-icon');
+            const isCorrect = (option.trim().toLowerCase() === quiz.answer.trim().toLowerCase());
+
+            if (isCorrect) {
                 btn.classList.add('correct');
-                quizFeedback.textContent = "🎉 Correct! Well done.";
-                quizFeedback.className = "quiz-feedback success";
+                if (stateIcon) {
+                    stateIcon.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>';
+                }
+                quizFeedback.className = "quiz-feedback-card success";
+                quizFeedback.innerHTML = `
+                    <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                    <div class="quiz-feedback-body">
+                        <div class="quiz-feedback-title">Chính xác! (Well done)</div>
+                        <div class="quiz-feedback-desc">Bạn đã trả lời đúng câu hỏi trắc nghiệm này.</div>
+                    </div>
+                `;
             } else {
                 btn.classList.add('wrong');
-                quizFeedback.textContent = `💡 Oops! The correct answer is: ${quiz.answer}`;
-                quizFeedback.className = "quiz-feedback error";
+                if (stateIcon) {
+                    stateIcon.innerHTML = '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>';
+                }
+                
+                // Highlight the correct answer among other buttons
+                allBtns.forEach(b => {
+                    const textEl = b.querySelector('.quiz-opt-text');
+                    const bText = textEl ? textEl.textContent.trim().toLowerCase() : b.textContent.trim().toLowerCase();
+                    if (bText === quiz.answer.trim().toLowerCase()) {
+                        b.classList.add('reveal-correct');
+                        const bIcon = b.querySelector('.quiz-opt-icon');
+                        if (bIcon) {
+                            bIcon.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+                        }
+                    }
+                });
+
+                quizFeedback.className = "quiz-feedback-card error";
+                quizFeedback.innerHTML = `
+                    <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></div>
+                    <div class="quiz-feedback-body">
+                        <div class="quiz-feedback-title">Chưa chính xác (Oops!)</div>
+                        <div class="quiz-feedback-desc">Đáp án đúng là: <strong>${escapeHtml(quiz.answer)}</strong></div>
+                    </div>
+                `;
             }
             quizFeedback.classList.remove('hidden');
         };
