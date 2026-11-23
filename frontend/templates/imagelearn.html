@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Cache-busted Stylesheet & Embedded Styles -->
-    <link rel="stylesheet" href="/assets/styles/imagelearn.css?v=2.4">
+    <link rel="stylesheet" href="/assets/styles/imagelearn.css?v=2.5">
     <style>
 /* Embedded Studio Styles for Instant Render */
 :root {
@@ -90,15 +90,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .spinner { width: 48px; height: 48px; border: 4px solid var(--border-hairline); border-top-color: var(--accent-cobalt); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem auto; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 #loader p { font-size: 1rem; font-weight: 600; color: var(--ink-primary); }
-.results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; }
-.result-card .card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-hairline); background-color: #FAFCFE; }
-.result-card .card-header h2 { font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
-.result-card .card-body { padding: 1.5rem; }
-#annotated-image { width: 100%; border-radius: var(--radius-soft); border: 1px solid var(--border-hairline); margin-bottom: 1.25rem; }
+.results-grid, .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; margin-bottom: 2rem; }
+.visual-overview-card { position: sticky; top: 80px; align-self: start; }
+.card-header, .result-card .card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-hairline); background-color: #FAFCFE; }
+.card-header h2, .result-card .card-header h2 { font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
+.card-body, .result-card .card-body { padding: 1.5rem; }
+.annotated-image-wrapper { width: 100%; border-radius: var(--radius-soft); overflow: hidden; background: var(--surface-subtle); border: 1px solid var(--border-hairline); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
+#annotated-image { width: 100%; max-height: 440px; object-fit: contain; display: block; }
+.flashcards-section-card { margin-bottom: 2rem; }
+.flashcards-header-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .flashcards-section-header { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.75rem; }
 .flashcards-section-title { font-size: 0.95rem; font-weight: 700; color: var(--ink-primary); display: flex; align-items: center; gap: 0.5rem; }
 .objects-count-badge { background: var(--accent-cobalt-light); color: var(--accent-cobalt); font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; border: 1px solid #BFDBFE; }
-.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 1rem; }
 .vocab-flashcard { background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--radius-soft); overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; display: flex; flex-direction: column; }
 .vocab-flashcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-flat); border-color: var(--accent-cobalt); }
 .card-thumb-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: var(--surface-subtle); overflow: hidden; }
@@ -218,7 +222,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .source-gemini { background: rgba(29, 78, 216, 0.85); color: #FFFFFF; }
 .card-vietnamese { font-size: 0.78rem; color: var(--ink-caption); text-align: center; margin-top: -0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tag-cefr { margin-left: 0.35rem; font-size: 0.7rem; font-weight: 700; }
-@media (max-width: 900px) { .results-grid { grid-template-columns: 1fr; } .page-header { flex-direction: column; align-items: flex-start; gap: 1rem; } }
+.memory-banner { background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%); border: 1px solid #BFDBFE; border-radius: var(--radius-soft); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-flat); display: flex; flex-direction: column; gap: 0.75rem; }
+.memory-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.memory-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: #DBEAFE; color: #1D4ED8; font-size: 0.92rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: var(--radius-sharp); border: 1px solid #93C5FD; }
+.memory-level-tag { font-size: 0.8rem; font-weight: 700; color: #1E40AF; background: #FFFFFF; padding: 0.25rem 0.75rem; border-radius: 9999px; border: 1px solid #BFDBFE; }
+.memory-stats-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.memory-stat-item { display: inline-flex; align-items: baseline; gap: 0.4rem; font-size: 0.88rem; color: var(--ink-muted); }
+.memory-stat-item .stat-number { font-size: 1.15rem; font-weight: 800; font-family: var(--font-display); color: var(--ink-primary); }
+.memory-stat-item .stat-number.text-amber { color: #D97706; }
+.memory-recommendation { font-size: 0.9rem; line-height: 1.5; color: var(--ink-body); background: #FFFFFF; padding: 0.75rem 1rem; border-radius: var(--radius-sharp); border: 1px solid #E2E8F0; }
+.quiz-card-section { margin-bottom: 2.5rem; background: var(--surface-card); }
+.quiz-header-wrap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; width: 100%; }
+@media (max-width: 900px) { .results-grid, .overview-grid { grid-template-columns: 1fr; } .visual-overview-card { position: static; } .page-header { flex-direction: column; align-items: flex-start; gap: 1rem; } }
+@media (max-width: 640px) { .cards-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; } }
 @media (max-width: 768px) { .nav-links-track { display: none; } }
     </style>
 </head>
@@ -390,39 +406,32 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
                     <div id="spatial-relations-container" class="spatial-relations-list"></div>
                 </div>
 
-                <div class="results-grid">
-                    <!-- Left: Vision Results -->
-                    <div class="card result-card">
+                <!-- TIER 1: Balanced Overview Grid (Image Evidence & AI Lesson Side-by-Side) -->
+                <div class="overview-grid">
+                    <!-- Left: Visual Evidence Card -->
+                    <div class="card visual-overview-card">
                         <div class="card-header">
                             <h2>
-                                <i class="fa-solid fa-crosshairs" aria-hidden="true"></i>
-                                <span>Đồ vật được nhận diện</span>
+                                <i class="fa-solid fa-camera-retro" aria-hidden="true"></i>
+                                <span>Ảnh phân tích & Nhận diện</span>
                             </h2>
                         </div>
                         <div class="card-body">
-                            <!-- SVG placeholder avoids broken-image warning -->
-                            <img id="annotated-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="Kết quả nhận diện YOLO">
-                            
-                            <!-- Visual Flashcards (Phase 1 Vision Upgrade) -->
-                            <div class="flashcards-section-header">
-                                <div class="flashcards-section-title">
-                                    <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-                                    <span>Thẻ từ vựng trực quan (Visual Flashcards)</span>
-                                </div>
-                                <span id="objects-count-badge" class="objects-count-badge">0 đồ vật</span>
+                            <div class="annotated-image-wrapper">
+                                <!-- SVG placeholder avoids broken-image warning -->
+                                <img id="annotated-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="Kết quả nhận diện đồ vật">
                             </div>
-                            <div id="detected-cards-grid" class="cards-grid"></div>
 
-                            <!-- Quick tags -->
+                            <!-- Quick tags directly under image -->
                             <div class="quick-tags-section">
-                                <span class="quick-tags-label">Nhãn nhận diện:</span>
+                                <span class="quick-tags-label">Nhãn nhận diện trong ảnh:</span>
                                 <div id="detected-tags" class="tag-container"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right: Teacher Results -->
-                    <div class="card result-card">
+                    <!-- Right: AI Teacher Lesson Card -->
+                    <div class="card lesson-overview-card">
                         <div class="card-header">
                             <h2>
                                 <i class="fa-solid fa-book-open" aria-hidden="true"></i>
@@ -432,20 +441,42 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
                         <div class="card-body" id="lesson-content">
                             <!-- AI Content will be rendered here -->
                         </div>
-                        <div id="quiz-container" class="quiz-section hidden">
-                            <div class="quiz-header">
-                                <h3 class="quiz-title">
-                                    <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
-                                    <span id="quiz-header-title">Câu đố ôn tập nhanh</span>
-                                </h3>
-                                <span id="quiz-badge-info" class="quiz-instruction">Thử thách từ vựng</span>
-                            </div>
-                            <div id="quiz-items-container" class="quiz-items-container"></div>
-                            <!-- Fallback backward compatible containers -->
-                            <div id="quiz-question" class="quiz-question-box hidden"></div>
-                            <div id="quiz-options" class="options-grid hidden"></div>
-                            <div id="quiz-feedback" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- TIER 2: Visual Flashcards Gallery (Full-Width Dedicated Gallery) -->
+                <div class="card flashcards-section-card">
+                    <div class="card-header">
+                        <div class="flashcards-header-wrap">
+                            <h2>
+                                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                                <span>Bộ sưu tập Thẻ Từ vựng Trực quan (Visual Flashcards)</span>
+                            </h2>
+                            <span id="objects-count-badge" class="objects-count-badge">0 đồ vật</span>
                         </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="detected-cards-grid" class="cards-grid"></div>
+                    </div>
+                </div>
+
+                <!-- TIER 3: Practice & Review Arena (Full-Width Interactive Challenge) -->
+                <div id="quiz-container" class="card quiz-card-section hidden">
+                    <div class="card-header">
+                        <div class="quiz-header-wrap">
+                            <h3 class="quiz-title">
+                                <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+                                <span id="quiz-header-title">Thử thách ôn tập từ vựng</span>
+                            </h3>
+                            <span id="quiz-badge-info" class="quiz-instruction">Bộ 3 câu hỏi củng cố & mở rộng</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="quiz-items-container" class="quiz-items-container"></div>
+                        <!-- Fallback backward compatible containers -->
+                        <div id="quiz-question" class="quiz-question-box hidden"></div>
+                        <div id="quiz-options" class="options-grid hidden"></div>
+                        <div id="quiz-feedback" class="hidden"></div>
                     </div>
                 </div>
             </section>
@@ -482,6 +513,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 
     </div>
 
-    <script src="/assets/scripts/app.js?v=2.4"></script>
+    <script src="/assets/scripts/app.js?v=2.5"></script>
 </body>
 </html>
