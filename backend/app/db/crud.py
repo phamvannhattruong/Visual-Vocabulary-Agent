@@ -57,10 +57,13 @@ def log_image_learning(
     annotated_img_url: Optional[str],
     lesson_context: Optional[str],
     quiz_data: Any,
+    scan_mode: Optional[str] = "auto",
+    detected_objects: Any = None,
+    scene_context: Any = None,
     user_id: Optional[int] = None,
 ) -> ImageLearningLog:
-    """Save an image analysis and lesson generation log."""
-    # Ensure serializable labels and quiz data
+    """Save an image analysis and lesson generation log with Phase 2 metadata."""
+    # Ensure serializable labels, objects, scene, and quiz data
     if isinstance(detected_labels, (list, tuple, set)):
         labels_str = json.dumps([str(l) for l in detected_labels], ensure_ascii=False)
     elif isinstance(detected_labels, str):
@@ -75,10 +78,27 @@ def log_image_learning(
     else:
         quiz_str = None
 
+    if isinstance(detected_objects, (list, tuple)):
+        objects_str = json.dumps(detected_objects, ensure_ascii=False)
+    elif isinstance(detected_objects, str):
+        objects_str = detected_objects
+    else:
+        objects_str = None
+
+    if isinstance(scene_context, dict):
+        scene_str = json.dumps(scene_context, ensure_ascii=False)
+    elif isinstance(scene_context, str):
+        scene_str = scene_context
+    else:
+        scene_str = None
+
     image_log = ImageLearningLog(
         user_id=user_id,
         file_name=file_name,
+        scan_mode=scan_mode or "auto",
         detected_labels=labels_str,
+        detected_objects=objects_str,
+        scene_context=scene_str,
         annotated_img_url=annotated_img_url,
         lesson_context=lesson_context,
         quiz_data=quiz_str,
@@ -172,10 +192,13 @@ def background_save_image_log(
     annotated_img_url: Optional[str],
     lesson_context: Optional[str],
     quiz_data: Any,
+    scan_mode: Optional[str] = "auto",
+    detected_objects: Any = None,
+    scene_context: Any = None,
     user_id: Optional[int] = None,
     ip_address: Optional[str] = None,
 ):
-    """Safely log image analysis and lesson generation in background."""
+    """Safely log image analysis and lesson generation in background with Phase 2 metadata."""
     with SessionLocal() as db:
         try:
             log_image_learning(
@@ -185,13 +208,16 @@ def background_save_image_log(
                 annotated_img_url=annotated_img_url,
                 lesson_context=lesson_context,
                 quiz_data=quiz_data,
+                scan_mode=scan_mode,
+                detected_objects=detected_objects,
+                scene_context=scene_context,
                 user_id=user_id,
             )
             log_activity(
                 db=db,
                 action="ANALYZE_IMAGE",
                 status="SUCCESS",
-                details=f"File: {file_name}",
+                details=f"File: {file_name}, ScanMode: {scan_mode or 'auto'}",
                 ip_address=ip_address,
                 user_id=user_id,
             )
