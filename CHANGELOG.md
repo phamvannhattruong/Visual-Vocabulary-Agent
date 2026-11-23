@@ -37,8 +37,13 @@ Tất cả những thay đổi đáng chú ý của dự án **Visual Vocabulary
   - Mở rộng bảng `image_learning_logs` trong CSDL với các cột: `scan_mode`, `detected_objects` (JSON chi tiết), và `scene_context` (JSON môi trường & quan hệ không gian).
   - Cập nhật script DDL [database/scripts/create_db.sql](file:///database/scripts/create_db.sql) với cơ chế tự động di trú (`ALTER TABLE`) an toàn cho các hệ thống đã triển khai.
   - Cập nhật API Endpoint `/api/v1/logs/learning` trả về đầy đủ các trường dữ liệu nâng cấp của Phase 2.
+- **Trí nhớ Cá nhân hóa Dài hạn của Agent (Long-Term Memory Profile):**
+  - Xây dựng hàm trích xuất trí nhớ học tập `get_user_learning_memory` từ lịch sử CSDL (`image_learning_logs`, `pronunciation_logs`).
+  - Tự động thống kê: danh sách từ vựng đã tích luỹ (`known_vocabulary`), các từ phát âm còn yếu cần củng cố (`weak_pronunciation_words`), từ đã thành thạo (`mastered_words`), và ước lượng trình độ thích ứng (`learner_level`: A1, A2, B1).
+  - Tích hợp các chỉ thị sư phạm thích ứng (*Pedagogical Memory Directives*) vào Teacher Agent: ưu tiên dạy từ mới chưa từng học (*Novelty Preference*), chủ động củng cố các từ phát âm yếu (*Reinforce Weak Words*), và điều chỉnh độ khó bài học theo năng lực thực tế.
+  - Giao diện người dùng hiển thị banner trí nhớ học viên (*Learner Memory Profile*) và gắn huy hiệu trạng thái (*Mới / Đã học / Cần luyện*) trên từng thẻ flashcard.
 - **Hệ thống Kiểm thử (Test Suite):**
-  - Bổ sung bộ 13 unit tests tự động kiểm thử toàn diện: Hybrid detection, EXIF normalization, auto-refinement bounding box, Teacher spatial prepositions, và lưu trữ dữ liệu CSDL.
+  - Bổ sung bộ 15 unit tests tự động kiểm thử toàn diện: Hybrid detection, EXIF normalization, auto-refinement bounding box, Teacher spatial prepositions, lưu trữ dữ liệu CSDL và trích xuất Long-Term Memory.
 
 ---
 

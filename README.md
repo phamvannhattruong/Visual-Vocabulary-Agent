@@ -314,6 +314,7 @@ Hệ thống được thiết kế với độ tin cậy cao (**High Resilience*
 
 - [x] Tích hợp Computer Vision nhận diện vật thể YOLO11n.
 - [x] **Nâng cấp Vision Agent Phase 2:** Kiến trúc Hybrid YOLO11 + Gemini 2.5 Flash Vision, 3 chế độ quét (`auto`/`fast`/`deep`), hiểu bối cảnh không gian và thẻ học flashcard trực quan kèm CEFR.
+- [x] **Trí nhớ dài hạn cá nhân hóa (Agent Long-Term Memory):** Tích hợp hồ sơ học tập người dùng từ CSDL, tự động phát hiện từ phát âm yếu, ưu tiên dạy từ mới và cá nhân hóa lộ trình bài học.
 - [x] Tích hợp Google Gemini Flash tạo bài học ngữ cảnh và Chatbot gia sư.
 - [x] Xây dựng bảng tra cứu 44 âm chuẩn IPA và TTS audio.
 - [x] Cơ chế chuyển đổi CSDL linh hoạt (SQL Server $\leftrightarrow$ SQLite) lưu trữ toàn diện nhật ký học tập.
