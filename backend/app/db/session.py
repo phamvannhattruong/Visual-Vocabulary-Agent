@@ -43,6 +43,41 @@ engine = _build_engine(active_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _auto_migrate_schema(target_engine):
+    """Auto-migrate missing columns for existing tables across SQLite and MSSQL."""
+    try:
+        inspector = inspect(target_engine)
+        tables = inspector.get_table_names()
+        if "image_learning_logs" in tables:
+            columns = {col["name"] for col in inspector.get_columns("image_learning_logs")}
+            is_mssql = "mssql" in str(target_engine.url.drivername) or "pyodbc" in str(target_engine.url.drivername)
+
+            with target_engine.connect() as conn:
+                altered = False
+                if "scan_mode" not in columns:
+                    col_type = "NVARCHAR(50) DEFAULT 'auto'" if is_mssql else "VARCHAR(50) DEFAULT 'auto'"
+                    conn.execute(text(f"ALTER TABLE image_learning_logs ADD scan_mode {col_type}"))
+                    logger.info("[MIGRATION] Added column 'scan_mode' to image_learning_logs.")
+                    altered = True
+
+                if "detected_objects" not in columns:
+                    col_type = "NVARCHAR(MAX) NULL" if is_mssql else "TEXT NULL"
+                    conn.execute(text(f"ALTER TABLE image_learning_logs ADD detected_objects {col_type}"))
+                    logger.info("[MIGRATION] Added column 'detected_objects' to image_learning_logs.")
+                    altered = True
+
+                if "scene_context" not in columns:
+                    col_type = "NVARCHAR(MAX) NULL" if is_mssql else "TEXT NULL"
+                    conn.execute(text(f"ALTER TABLE image_learning_logs ADD scene_context {col_type}"))
+                    logger.info("[MIGRATION] Added column 'scene_context' to image_learning_logs.")
+                    altered = True
+
+                if altered:
+                    conn.commit()
+    except Exception as e:
+        logger.warning(f"[MIGRATION WARNING] Auto-migration check encountered: {e}")
+
+
 def ensure_initialized():
     """Ensure database connection is validated and schema created exactly once."""
     global engine, active_url, is_using_fallback, SessionLocal, _initialized
@@ -67,8 +102,9 @@ def ensure_initialized():
 
     try:
         Base.metadata.create_all(bind=engine)
+        _auto_migrate_schema(engine)
         logger.info(
-            f"[DATABASE] Tables verified on {engine.url.drivername} "
+            f"[DATABASE] Tables and schema verified on {engine.url.drivername} "
             f"({'fallback SQLite' if is_using_fallback else 'primary'})"
         )
     except Exception as exc:
@@ -80,6 +116,7 @@ def ensure_initialized():
                 engine = _build_engine(active_url)
                 SessionLocal.configure(bind=engine)
                 Base.metadata.create_all(bind=engine)
+                _auto_migrate_schema(engine)
                 logger.info("[DATABASE] Fallback SQLite tables created.")
             except Exception as e2:
                 logger.error(f"[DATABASE CRITICAL] Fallback also failed: {e2}")
