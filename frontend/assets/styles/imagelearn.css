@@ -832,6 +832,124 @@ h4 {
     outline-offset: 2px;
 }
 
+/* Learner Long-Term Memory Banner */
+.memory-banner {
+    background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+    border: 1px solid #BFDBFE;
+    border-radius: var(--radius-soft);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-flat);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.memory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.memory-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #DBEAFE;
+    color: #1D4ED8;
+    font-size: 0.92rem;
+    font-weight: 700;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-sharp);
+    border: 1px solid #93C5FD;
+}
+
+.memory-level-tag {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1E40AF;
+    background: #FFFFFF;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid #BFDBFE;
+}
+
+.memory-stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 0.25rem 0;
+}
+
+.memory-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.memory-stat-item .stat-number {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--ink-primary);
+    line-height: 1.1;
+}
+
+.memory-stat-item .stat-number.text-amber {
+    color: #D97706;
+}
+
+.memory-stat-item .stat-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--ink-caption);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.memory-recommendation {
+    font-size: 0.88rem;
+    color: #334155;
+    line-height: 1.5;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 0.55rem 0.95rem;
+    border-radius: var(--radius-sharp);
+    border-left: 3px solid #3B82F6;
+}
+
+/* Flashcard Memory Badges */
+.card-memory-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.18rem 0.45rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.card-memory-badge.memory-new {
+    background: #10B981;
+    color: #FFFFFF;
+}
+
+.card-memory-badge.memory-reviewed {
+    background: #6366F1;
+    color: #FFFFFF;
+}
+
+.card-memory-badge.memory-reinforce {
+    background: #F59E0B;
+    color: #FFFFFF;
+}
+
 /* Scene Context Banner */
 .scene-banner {
     background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
