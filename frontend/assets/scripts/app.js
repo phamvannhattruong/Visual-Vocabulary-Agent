@@ -17,6 +17,9 @@ const detectedCardsGrid = document.getElementById('detected-cards-grid');
 const objectsCountBadge = document.getElementById('objects-count-badge');
 const lessonContent = document.getElementById('lesson-content');
 const quizContainer = document.getElementById('quiz-container');
+const quizHeaderTitle = document.getElementById('quiz-header-title');
+const quizBadgeInfo = document.getElementById('quiz-badge-info');
+const quizItemsContainer = document.getElementById('quiz-items-container');
 const quizQuestion = document.getElementById('quiz-question');
 const quizOptions = document.getElementById('quiz-options');
 const quizFeedback = document.getElementById('quiz-feedback');
@@ -378,79 +381,234 @@ function escapeHtml(text) {
 }
 
 function renderQuiz(quiz) {
+    if (!quiz) {
+        quizContainer.classList.add('hidden');
+        return;
+    }
+
+    // Extract questions list
+    let questions = [];
+    if (Array.isArray(quiz.questions) && quiz.questions.length > 0) {
+        questions = quiz.questions;
+    } else if (quiz.question && Array.isArray(quiz.options)) {
+        questions = [{
+            id: 1,
+            type: 'single',
+            question: quiz.question,
+            options: quiz.options,
+            answer: quiz.answer,
+            explanation: quiz.explanation || ''
+        }];
+    }
+
+    if (questions.length === 0) {
+        quizContainer.classList.add('hidden');
+        return;
+    }
+
     quizContainer.classList.remove('hidden');
-    quizQuestion.textContent = quiz.question;
-    quizOptions.innerHTML = '';
-    quizFeedback.classList.add('hidden');
-    quizFeedback.innerHTML = '';
+
+    // Update Header Text & Badge
+    const isReviewChallenge = (quiz.mode === 'review_challenge' || questions.length > 1);
+    if (quizHeaderTitle) {
+        if (isReviewChallenge) {
+            const targetWord = quiz.target_word ? `: ${escapeHtml(quiz.target_word)}` : '';
+            quizHeaderTitle.innerHTML = `Thử thách ôn tập từ đã học${targetWord}`;
+        } else {
+            quizHeaderTitle.textContent = "Câu đố ôn tập nhanh";
+        }
+    }
+    if (quizBadgeInfo) {
+        quizBadgeInfo.textContent = isReviewChallenge ? "Bộ 3 câu hỏi củng cố & mở rộng" : "Chọn 1 đáp án chính xác";
+    }
+
+    // Render questions into quizItemsContainer if present
+    const container = quizItemsContainer || quizOptions;
+    container.innerHTML = '';
 
     const letters = ['A', 'B', 'C', 'D', 'E'];
 
-    quiz.options.forEach((option, idx) => {
-        const letter = letters[idx] || String.fromCharCode(65 + idx);
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'quiz-option-btn';
-        btn.setAttribute('aria-label', `Đáp án ${letter}: ${option}`);
-        
-        btn.innerHTML = `
-            <span class="quiz-opt-letter">${letter}</span>
-            <span class="quiz-opt-text">${escapeHtml(option)}</span>
-            <span class="quiz-opt-icon"><i class="fa-regular fa-circle" aria-hidden="true"></i></span>
-        `;
+    questions.forEach((q, qIdx) => {
+        const card = document.createElement('div');
+        card.className = 'quiz-item-card';
 
-        btn.onclick = () => {
-            const allBtns = quizOptions.querySelectorAll('.quiz-option-btn, .option-btn');
-            allBtns.forEach(b => b.disabled = true);
-            
-            const stateIcon = btn.querySelector('.quiz-opt-icon');
-            const isCorrect = (option.trim().toLowerCase() === quiz.answer.trim().toLowerCase());
+        // 1. Item Header with Category Badge
+        const header = document.createElement('div');
+        header.className = 'quiz-item-header';
 
-            if (isCorrect) {
-                btn.classList.add('correct');
-                if (stateIcon) {
-                    stateIcon.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>';
-                }
-                quizFeedback.className = "quiz-feedback-card success";
-                quizFeedback.innerHTML = `
-                    <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
-                    <div class="quiz-feedback-body">
-                        <div class="quiz-feedback-title">Chính xác! (Well done)</div>
-                        <div class="quiz-feedback-desc">Bạn đã trả lời đúng câu hỏi trắc nghiệm này.</div>
-                    </div>
-                `;
-            } else {
-                btn.classList.add('wrong');
-                if (stateIcon) {
-                    stateIcon.innerHTML = '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>';
-                }
-                
-                // Highlight the correct answer among other buttons
-                allBtns.forEach(b => {
-                    const textEl = b.querySelector('.quiz-opt-text');
-                    const bText = textEl ? textEl.textContent.trim().toLowerCase() : b.textContent.trim().toLowerCase();
-                    if (bText === quiz.answer.trim().toLowerCase()) {
-                        b.classList.add('reveal-correct');
-                        const bIcon = b.querySelector('.quiz-opt-icon');
-                        if (bIcon) {
-                            bIcon.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
-                        }
+        let badgeHtml = '';
+        if (q.type === 'pronunciation') {
+            badgeHtml = `<span class="quiz-type-badge badge-pronunciation"><i class="fa-solid fa-headphones" aria-hidden="true"></i> Câu ${qIdx + 1}: Phát âm & Phiên âm</span>`;
+        } else if (q.type === 'meaning') {
+            badgeHtml = `<span class="quiz-type-badge badge-meaning"><i class="fa-solid fa-book" aria-hidden="true"></i> Câu ${qIdx + 1}: Nghĩa tiếng Việt</span>`;
+        } else if (q.type === 'synonym') {
+            badgeHtml = `<span class="quiz-type-badge badge-synonym"><i class="fa-solid fa-arrows-split-up-and-left" aria-hidden="true"></i> Câu ${qIdx + 1}: Từ đồng nghĩa / gần nghĩa</span>`;
+        } else {
+            badgeHtml = `<span class="quiz-type-badge"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> Câu hỏi ${qIdx + 1}</span>`;
+        }
+
+        const targetLabel = (q.target_word || quiz.target_word) ? 
+            `<span class="quiz-item-target">${escapeHtml(q.target_word || quiz.target_word)}</span>` : '';
+        header.innerHTML = `${badgeHtml}${targetLabel}`;
+        card.appendChild(header);
+
+        // 2. Question Text
+        const questionText = document.createElement('div');
+        questionText.className = 'quiz-item-question';
+        questionText.textContent = q.question;
+        card.appendChild(questionText);
+
+        // 3. Options Grid
+        const grid = document.createElement('div');
+        grid.className = 'options-grid';
+
+        const feedbackBox = document.createElement('div');
+        feedbackBox.className = 'quiz-item-feedback hidden';
+
+        const synonymContainer = document.createElement('div');
+        synonymContainer.className = 'synonym-lesson-container hidden';
+
+        (q.options || []).forEach((option, optIdx) => {
+            const letter = letters[optIdx] || String.fromCharCode(65 + optIdx);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quiz-option-btn';
+            btn.setAttribute('aria-label', `Đáp án ${letter}: ${option}`);
+
+            btn.innerHTML = `
+                <span class="quiz-opt-letter">${letter}</span>
+                <span class="quiz-opt-text">${escapeHtml(option)}</span>
+                <span class="quiz-opt-icon"><i class="fa-regular fa-circle" aria-hidden="true"></i></span>
+            `;
+
+            btn.onclick = () => {
+                const allBtns = grid.querySelectorAll('.quiz-option-btn, .option-btn');
+                allBtns.forEach(b => b.disabled = true);
+
+                const stateIcon = btn.querySelector('.quiz-opt-icon');
+                const isCorrect = (option.trim().toLowerCase() === String(q.answer).trim().toLowerCase());
+
+                if (isCorrect) {
+                    btn.classList.add('correct');
+                    if (stateIcon) {
+                        stateIcon.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>';
                     }
-                });
+                    feedbackBox.className = "quiz-feedback-card success";
+                    feedbackBox.innerHTML = `
+                        <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                        <div class="quiz-feedback-body">
+                            <div class="quiz-feedback-title">Chính xác! (Well done)</div>
+                            <div class="quiz-feedback-desc">${escapeHtml(q.explanation || 'Bạn đã chọn câu trả lời chính xác.')}</div>
+                        </div>
+                    `;
+                } else {
+                    btn.classList.add('wrong');
+                    if (stateIcon) {
+                        stateIcon.innerHTML = '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>';
+                    }
 
-                quizFeedback.className = "quiz-feedback-card error";
-                quizFeedback.innerHTML = `
-                    <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></div>
-                    <div class="quiz-feedback-body">
-                        <div class="quiz-feedback-title">Chưa chính xác (Oops!)</div>
-                        <div class="quiz-feedback-desc">Đáp án đúng là: <strong>${escapeHtml(quiz.answer)}</strong></div>
-                    </div>
-                `;
-            }
-            quizFeedback.classList.remove('hidden');
-        };
-        quizOptions.appendChild(btn);
+                    // Reveal correct button
+                    allBtns.forEach(b => {
+                        const textEl = b.querySelector('.quiz-opt-text');
+                        const bText = textEl ? textEl.textContent.trim().toLowerCase() : b.textContent.trim().toLowerCase();
+                        if (bText === String(q.answer).trim().toLowerCase()) {
+                            b.classList.add('reveal-correct');
+                            const bIcon = b.querySelector('.quiz-opt-icon');
+                            if (bIcon) {
+                                bIcon.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+                            }
+                        }
+                    });
+
+                    feedbackBox.className = "quiz-feedback-card error";
+                    feedbackBox.innerHTML = `
+                        <div class="quiz-feedback-icon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></div>
+                        <div class="quiz-feedback-body">
+                            <div class="quiz-feedback-title">Chưa chính xác (Oops!)</div>
+                            <div class="quiz-feedback-desc">Đáp án đúng là: <strong>${escapeHtml(q.answer)}</strong>. ${escapeHtml(q.explanation || '')}</div>
+                        </div>
+                    `;
+                }
+                feedbackBox.classList.remove('hidden');
+
+                // Special handling for Synonym question: reveal or fetch the synonym lesson
+                if (q.type === 'synonym' || q.synonym_lesson) {
+                    if (q.synonym_lesson) {
+                        renderSynonymLessonCard(synonymContainer, q.synonym_lesson);
+                    } else {
+                        fetchSynonymLesson(synonymContainer, q.answer);
+                    }
+                }
+            };
+
+            grid.appendChild(btn);
+        });
+
+        card.appendChild(grid);
+        card.appendChild(feedbackBox);
+        card.appendChild(synonymContainer);
+        container.appendChild(card);
     });
+}
+
+function renderSynonymLessonCard(container, lesson) {
+    if (!lesson || !lesson.word) return;
+    container.innerHTML = `
+        <div class="synonym-lesson-card">
+            <div class="synonym-header">
+                <div class="synonym-title-wrap">
+                    <span class="synonym-pill">
+                        <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Bài giảng mở rộng: Từ đồng nghĩa
+                    </span>
+                    <h4 class="synonym-word-title">${escapeHtml(lesson.word)}</h4>
+                </div>
+                <button type="button" class="synonym-practice-btn" onclick="openPractice('${escapeHtml(lesson.word)}')">
+                    <i class="fa-solid fa-microphone" aria-hidden="true"></i> Luyện đọc từ này
+                </button>
+            </div>
+            <div class="synonym-details">
+                <div class="synonym-ipa-row">
+                    <span class="synonym-label">Phiên âm:</span>
+                    <span class="synonym-ipa-badge">${escapeHtml(lesson.ipa || '/.../')}</span>
+                    <button type="button" class="synonym-audio-btn" onclick="speak('${escapeHtml(lesson.word)}')">
+                        <i class="fa-solid fa-volume-high" aria-hidden="true"></i> Nghe phát âm
+                    </button>
+                </div>
+                <div class="synonym-meaning-row">
+                    <span class="synonym-label">Nghĩa tiếng Việt:</span>
+                    <span class="synonym-meaning-val">${escapeHtml(lesson.meaning_vn || '')}</span>
+                </div>
+                <div class="synonym-example-box">
+                    <div class="synonym-example-header">
+                        <i class="fa-solid fa-quote-left" aria-hidden="true"></i> Ví dụ câu ngữ cảnh:
+                    </div>
+                    <div class="synonym-example-text">${escapeHtml(lesson.example || '')}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.classList.remove('hidden');
+}
+
+async function fetchSynonymLesson(container, word) {
+    if (!word) return;
+    container.classList.remove('hidden');
+    container.innerHTML = `<div style="padding: 1rem; color: var(--ink-caption); font-size: 0.85rem;"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải bài giảng cho từ đồng nghĩa...</div>`;
+    try {
+        const resp = await fetch('/api/v1/synonym-lesson', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word: word })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            renderSynonymLessonCard(container, data);
+        } else {
+            renderSynonymLessonCard(container, { word: word, ipa: '', meaning_vn: 'Từ đồng nghĩa', example: '' });
+        }
+    } catch (e) {
+        renderSynonymLessonCard(container, { word: word, ipa: '', meaning_vn: 'Từ đồng nghĩa', example: '' });
+    }
 }
 
 // --- 5. Voice & Practice ---

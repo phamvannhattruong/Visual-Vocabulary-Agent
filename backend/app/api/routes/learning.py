@@ -12,6 +12,7 @@ from backend.app.db.crud import (
     background_save_pronunciation_log,
     get_user_learning_memory,
 )
+from backend.app.schemas.learning import SynonymLessonRequest, SynonymLessonResponse
 from backend.app.utils.content import (
     extract_json_from_ai,
     extract_quiz,
@@ -142,3 +143,19 @@ async def evaluate_pronunciation(
         return eval_result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI Agent error: {exc}") from exc
+
+
+@router.post("/synonym-lesson", response_model=SynonymLessonResponse)
+async def generate_synonym_lesson(payload: SynonymLessonRequest):
+    """Generate or retrieve a mini-lesson for a synonym expansion word."""
+    try:
+        data = get_teacher_agent().generate_synonym_lesson(payload.word)
+        return SynonymLessonResponse(
+            word=data.get("word", payload.word),
+            ipa=data.get("ipa", ""),
+            meaning_vn=data.get("meaning_vn", ""),
+            example=data.get("example", ""),
+            success=True,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate synonym lesson: {exc}") from exc

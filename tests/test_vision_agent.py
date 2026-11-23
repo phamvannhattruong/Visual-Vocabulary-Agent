@@ -234,6 +234,80 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
             self.assertIn("NOVELTY PREFERENCE", prompt_text)
             self.assertIn("REINFORCE WEAK WORDS", prompt_text)
 
+    def test_teacher_agent_review_challenge_directives(self):
+        """Verify prompt differentiates new vs already learned words and requests 3-question challenge with synonym lesson."""
+        teacher = TeacherAgent()
+        user_mem = {
+            "learner_level": "B1",
+            "total_lessons": 5,
+            "known_vocabulary": ["bottle", "cup"],
+            "weak_pronunciation_words": ["bottle"],
+            "mastered_words": ["cup"],
+        }
+        captured_prompts = []
+
+        def fake_generate(prompt):
+            captured_prompts.append(prompt)
+            return "Adaptive Lesson [QUIZ_START]{}[QUIZ_END]"
+
+        with patch.object(teacher, "generate_response", side_effect=fake_generate):
+            teacher.generate_learning_content(["bottle", "stapler"], user_memory=user_mem)
+            self.assertEqual(len(captured_prompts), 1)
+            prompt = captured_prompts[0]
+            self.assertIn("New / Unencountered Vocabulary: stapler", prompt)
+            self.assertIn("Already Learned Vocabulary (To Review): bottle", prompt)
+            self.assertIn("3-Question Deep Review Challenge", prompt)
+            self.assertIn("synonym_lesson", prompt)
+
+    def test_extract_quiz_multi_questions_and_synonym_lesson(self):
+        """Verify extract_quiz parses review challenge with synonym expansion lesson."""
+        from backend.app.utils.parsers import extract_quiz
+
+        ai_output = """Here is your visual lesson on bottle.
+[QUIZ_START]
+{
+  "mode": "review_challenge",
+  "target_word": "bottle",
+  "questions": [
+    {
+      "id": 1,
+      "type": "pronunciation",
+      "question": "Phiên âm IPA của bottle?",
+      "options": ["/ˈbɒtl/", "/ˈbʌtl/"],
+      "answer": "/ˈbɒtl/"
+    },
+    {
+      "id": 2,
+      "type": "meaning",
+      "question": "Nghĩa tiếng Việt của bottle?",
+      "options": ["Cái chai", "Cái cốc"],
+      "answer": "Cái chai"
+    },
+    {
+      "id": 3,
+      "type": "synonym",
+      "question": "Từ gần nghĩa với bottle?",
+      "options": ["flask", "pen"],
+      "answer": "flask",
+      "synonym_lesson": {
+        "word": "flask",
+        "ipa": "/flɑːsk/",
+        "meaning_vn": "Bình giữ nhiệt",
+        "example": "He carried a flask. (Anh ấy mang một bình giữ nhiệt.)"
+      }
+    }
+  ]
+}
+[QUIZ_END]
+"""
+        clean_text, quiz_data = extract_quiz(ai_output)
+        self.assertNotIn("[QUIZ_START]", clean_text)
+        self.assertIsNotNone(quiz_data)
+        self.assertEqual(quiz_data["mode"], "review_challenge")
+        self.assertEqual(len(quiz_data["questions"]), 3)
+        self.assertEqual(quiz_data["questions"][2]["synonym_lesson"]["word"], "flask")
+        self.assertEqual(quiz_data["questions"][2]["synonym_lesson"]["ipa"], "/flɑːsk/")
+
 
 if __name__ == "__main__":
     unittest.main()

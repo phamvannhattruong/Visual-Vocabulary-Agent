@@ -42,6 +42,16 @@ Tất cả những thay đổi đáng chú ý của dự án **Visual Vocabulary
   - Tự động thống kê: danh sách từ vựng đã tích luỹ (`known_vocabulary`), các từ phát âm còn yếu cần củng cố (`weak_pronunciation_words`), từ đã thành thạo (`mastered_words`), và ước lượng trình độ thích ứng (`learner_level`: A1, A2, B1).
   - Tích hợp các chỉ thị sư phạm thích ứng (*Pedagogical Memory Directives*) vào Teacher Agent: ưu tiên dạy từ mới chưa từng học (*Novelty Preference*), chủ động củng cố các từ phát âm yếu (*Reinforce Weak Words*), và điều chỉnh độ khó bài học theo năng lực thực tế.
   - Giao diện người dùng hiển thị banner trí nhớ học viên (*Learner Memory Profile*) và gắn huy hiệu trạng thái (*Mới / Đã học / Cần luyện*) trên từng thẻ flashcard.
+- **Cơ chế Phân nhánh Bài giảng Theo Trí nhớ Học viên & Thử thách Ôn tập 3 Câu hỏi:**
+  - Đối với từ mới (chưa học): Tự động sinh bài giảng chi tiết gồm phiên âm IPA, nghĩa tiếng Việt chuẩn, và ví dụ câu thực tế (song ngữ Anh - Việt).
+  - Đối với từ đã học (review): Chuyển đổi linh hoạt sang **Bộ 3 thử thách trắc nghiệm đa tầng (3-Question Deep Review Challenge)**:
+    1. Câu hỏi 1: Kiểm tra phát âm, âm vị và ký hiệu IPA.
+    2. Câu hỏi 2: Kiểm tra nghĩa tiếng Việt chính xác và ngữ cảnh sử dụng.
+    3. Câu hỏi 3: Kiểm tra từ đồng nghĩa / gần nghĩa tiếng Anh (Synonym).
+  - **Bài giảng Mở rộng Từ đồng nghĩa (Synonym Expansion Lesson):**
+    - Ngay sau khi người học trả lời câu hỏi số 3 (từ đồng nghĩa), hệ thống tự động hiển thị thẻ bài giảng mini chi tiết về từ đồng nghĩa đó: phiên âm IPA, nút nghe phát âm trực tiếp, nghĩa tiếng Việt, ví dụ câu ngữ cảnh và nút bấm kích hoạt luyện phát âm từ vựng mới ngay lập tức.
+  - Bổ sung API `POST /api/v1/synonym-lesson` phục vụ truy vấn hoặc sinh động bài giảng từ đồng nghĩa.
+  - Thiết kế lại toàn bộ giao diện trắc nghiệm đạt chuẩn Studio Design System: thẻ câu hỏi đa mục, huy hiệu chuyên biệt (Phát âm, Nghĩa, Đồng nghĩa), nút đáp án hỗ trợ phím tắt và chỉ dẫn A-B-C, trạng thái đúng/sai trực quan và highlight đáp án đúng khi chọn sai.
 - **Hệ thống Kiểm thử (Test Suite):**
   - Bổ sung bộ 15 unit tests tự động kiểm thử toàn diện: Hybrid detection, EXIF normalization, auto-refinement bounding box, Teacher spatial prepositions, lưu trữ dữ liệu CSDL và trích xuất Long-Term Memory.
 

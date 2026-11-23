@@ -22,12 +22,24 @@ def extract_quiz(text: str) -> Tuple[str, Optional[Dict[str, Any]]]:
     """
     Extract multiple-choice quiz JSON enclosed within [QUIZ_START] and [QUIZ_END] tags.
     Returns cleaned text and parsed quiz dict.
+    Supports single quiz, multi-question review challenges, and synonym expansion lessons.
     """
     quiz_match = re.search(r"\[QUIZ_START\](.*?)\[QUIZ_END\]", text, re.DOTALL)
     if quiz_match:
         try:
             quiz_data = json.loads(quiz_match.group(1).strip())
             clean_text = re.sub(r"\[QUIZ_START\].*?\[QUIZ_END\]", "", text, flags=re.DOTALL).strip()
+
+            if isinstance(quiz_data, list):
+                first_q = quiz_data[0] if len(quiz_data) > 0 and isinstance(quiz_data[0], dict) else {}
+                quiz_data = {
+                    "mode": "review_challenge",
+                    "questions": quiz_data,
+                    "question": first_q.get("question"),
+                    "options": first_q.get("options", []),
+                    "answer": first_q.get("answer"),
+                }
+
             return clean_text, quiz_data
         except Exception:
             return text, None

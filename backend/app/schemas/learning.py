@@ -49,3 +49,17 @@ class AnalyzeResponse(BaseModel):
     quiz: Optional[Dict[str, Any]] = None
     scan_mode: str = "auto"
     success: bool = True
+
+
+class SynonymLessonRequest(BaseModel):
+    """Request payload for generating or querying a synonym mini-lesson."""
+    word: str = Field(..., description="Target synonym word in English")
+
+
+class SynonymLessonResponse(BaseModel):
+    """Structured mini-lesson for a synonym expansion word."""
+    word: str
+    ipa: str = ""
+    meaning_vn: str = ""
+    example: str = ""
+    success: bool = True
