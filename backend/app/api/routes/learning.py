@@ -2,12 +2,15 @@
 from functools import lru_cache
 from typing import Optional, TYPE_CHECKING
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from sqlalchemy.orm import Session
 
 from backend.app.core.settings import UPLOAD_DIR
+from backend.app.db.session import get_db
 from backend.app.db.crud import (
     background_save_image_log,
     background_save_pronunciation_log,
+    get_user_learning_memory,
 )
 from backend.app.utils.content import (
     extract_json_from_ai,
@@ -52,6 +55,7 @@ async def analyze_image(
     file: UploadFile = File(...),
     scan_mode: str = Form("auto"),
     user_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
 ):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -63,9 +67,12 @@ async def analyze_image(
     if not annotated_path:
         raise HTTPException(status_code=500, detail="Failed to process image")
 
+    # Retrieve learner's personalized long-term memory profile
+    user_memory = get_user_learning_memory(db=db, user_id=user_id)
+
     try:
         raw_response = get_teacher_agent().generate_learning_content(
-            labels, scene_context=scene_context
+            labels, scene_context=scene_context, user_memory=user_memory
         )
         lesson_text, quiz_data = extract_quiz(raw_response)
     except Exception:
@@ -95,6 +102,7 @@ async def analyze_image(
         "detected_objects": detected_objects,
         "scene_context": scene_context,
         "scan_mode": scan_mode,
+        "user_memory": user_memory,
         "annotated_img_url": annotated_url,
         "lesson_context": lesson_text,
         "quiz": quiz_data,
