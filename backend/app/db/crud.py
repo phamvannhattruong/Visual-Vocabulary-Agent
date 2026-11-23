@@ -1,7 +1,7 @@
 """Database CRUD operations and background logging services."""
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -281,4 +281,114 @@ def get_pronunciation_logs(db: Session, limit: int = 50) -> List[PronunciationLo
 def get_activity_logs(db: Session, limit: int = 50) -> List[ActivityLog]:
     """Retrieve recent application activity logs."""
     return db.query(ActivityLog).order_by(desc(ActivityLog.created_at)).limit(limit).all()
+
+
+# ---------------------------------------------------------
+# Long-Term Memory Profile
+# ---------------------------------------------------------
+
+def get_user_learning_memory(
+    db: Session,
+    user_id: Optional[int] = None,
+    limit_recent: int = 50,
+) -> Dict[str, Any]:
+    """
+    Extract personalized long-term memory for an individual learner from database history.
+    Compiles:
+    1. Known vocabulary previously encountered in visual lessons.
+    2. Pronunciation strengths and weaknesses based on audio scoring logs.
+    3. Familiar physical environments and scenes visited.
+    4. Adaptive CEFR progression estimation.
+    """
+    target_user_id = user_id
+    if target_user_id is None:
+        first_user = db.query(User).order_by(User.id.asc()).first()
+        if first_user:
+            target_user_id = first_user.id
+
+    known_words = set()
+    recent_scenes = []
+    seen_scenes = set()
+
+    # 1. Query past image learning logs
+    img_query = db.query(ImageLearningLog)
+    if target_user_id is not None:
+        img_query = img_query.filter(ImageLearningLog.user_id == target_user_id)
+    img_logs = img_query.order_by(desc(ImageLearningLog.created_at)).limit(limit_recent).all()
+
+    for log in img_logs:
+        # Extract detected labels
+        if log.detected_labels:
+            try:
+                parsed_labels = json.loads(log.detected_labels)
+                if isinstance(parsed_labels, list):
+                    for lbl in parsed_labels:
+                        cleaned = str(lbl).strip().lower()
+                        if cleaned:
+                            known_words.add(cleaned)
+            except Exception:
+                pass
+
+        # Extract structured detected objects
+        if getattr(log, "detected_objects", None):
+            try:
+                parsed_objs = json.loads(log.detected_objects)
+                if isinstance(parsed_objs, list):
+                    for obj in parsed_objs:
+                        lbl = str(obj.get("label", "")).strip().lower()
+                        if lbl:
+                            known_words.add(lbl)
+            except Exception:
+                pass
+
+        # Extract scene context
+        if getattr(log, "scene_context", None):
+            try:
+                sc_parsed = json.loads(log.scene_context)
+                if isinstance(sc_parsed, dict):
+                    scene_name = sc_parsed.get("scene") or sc_parsed.get("scene_vietnamese")
+                    if scene_name and scene_name not in seen_scenes and scene_name != "Unknown":
+                        seen_scenes.add(scene_name)
+                        recent_scenes.append(scene_name)
+            except Exception:
+                pass
+
+    # 2. Query pronunciation logs to identify mastery vs weakness
+    pron_query = db.query(PronunciationLog)
+    if target_user_id is not None:
+        pron_query = pron_query.filter(PronunciationLog.user_id == target_user_id)
+    pron_logs = pron_query.order_by(desc(PronunciationLog.created_at)).limit(limit_recent).all()
+
+    weak_words = set()
+    mastered_words = set()
+    latest_word_scores: Dict[str, int] = {}
+
+    for pron in pron_logs:
+        word = str(pron.target_word).strip().lower()
+        if word and word not in latest_word_scores and pron.score is not None:
+            latest_word_scores[word] = pron.score
+            if pron.score < 75:
+                weak_words.add(word)
+            elif pron.score >= 80:
+                mastered_words.add(word)
+
+    # 3. Dynamic CEFR level estimation
+    vocab_count = len(known_words)
+    if vocab_count < 15:
+        learner_level = "A1"
+    elif vocab_count < 40:
+        learner_level = "A2"
+    else:
+        learner_level = "B1"
+
+    return {
+        "user_id": target_user_id,
+        "total_lessons": len(img_logs),
+        "known_vocabulary": sorted(list(known_words)),
+        "known_vocabulary_count": vocab_count,
+        "weak_pronunciation_words": sorted(list(weak_words)),
+        "mastered_words": sorted(list(mastered_words)),
+        "recent_scenes": recent_scenes[:5],
+        "learner_level": learner_level,
+    }
 
