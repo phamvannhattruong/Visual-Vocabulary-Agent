@@ -10,8 +10,6 @@ from unittest.mock import patch
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Ensure Ultralytics config is within project models dir before importing any app modules
-os.environ["YOLO_CONFIG_DIR"] = str(PROJECT_ROOT / "backend" / "resources" / "models")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 import numpy as np
@@ -26,11 +24,21 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
     def setUpClass(cls):
         cls.agent = DetectAgent()
         cls.temp_dir = Path(tempfile.mkdtemp())
+        cls.addClassCleanup(shutil.rmtree, cls.temp_dir)
+        cls.test_image = cls.temp_dir / "test.jpg"
+        sample = PROJECT_ROOT / "frontend/static/uploads/test.jpg"
+        if sample.is_file():
+            shutil.copyfile(sample, cls.test_image)
 
-    @classmethod
-    def tearDownClass(cls):
-        if cls.temp_dir.exists():
-            shutil.rmtree(cls.temp_dir)
+        for target in ("backend.app.services.agents.vision.UPLOAD_DIR", "backend.app.utils.storage.UPLOAD_DIR"):
+            upload_dir_patch = patch(target, cls.temp_dir)
+            upload_dir_patch.start()
+            cls.addClassCleanup(upload_dir_patch.stop)
+
+    def sample_image(self):
+        if not self.test_image.is_file():
+            self.skipTest("Place a sample photo in frontend/static/uploads/test.jpg to run detection tests")
+        return self.test_image
 
     def test_normalize_image_orientation_with_exif(self):
         # Create an image with dimensions (100w, 50h)
@@ -64,10 +72,7 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
         self.assertAlmostEqual(calculate_iou(box1, box4), 50.0 / 150.0, places=4)
 
     def test_detect_objects_backward_compatibility(self):
-        test_img_path = Path("frontend/static/uploads/test.jpg")
-        self.assertTrue(test_img_path.exists(), "test.jpg must exist for detection test")
-
-        unique_labels, annotated_path, detected_objects = self.agent.detect_objects(test_img_path)
+        unique_labels, annotated_path, detected_objects = self.agent.detect_objects(self.sample_image())
 
         self.assertIsInstance(unique_labels, list)
         self.assertIsInstance(annotated_path, str)
@@ -91,24 +96,27 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
         self.assertTrue(required_keys.issubset(first_obj.keys()))
 
     def test_detect_hybrid_fast_mode(self):
-        test_img_path = Path("frontend/static/uploads/test.jpg")
         labels, output_path, detected_objects, scene_context = self.agent.detect_hybrid(
-            test_img_path, scan_mode="fast"
+            self.sample_image(), scan_mode="fast"
         )
 
         self.assertIsInstance(labels, list)
         self.assertIsInstance(detected_objects, list)
         self.assertIsInstance(scene_context, dict)
         self.assertIn("scene", scene_context)
+        self.assertEqual(self.agent.model.get_providers(), ["CPUExecutionProvider"])
+        self.assertGreater(len(detected_objects), 0)
 
         # In fast mode, all objects should come from YOLO
         for obj in detected_objects:
             self.assertEqual(obj["source"], "yolo")
             self.assertIn("cefr_level", obj)
             self.assertIn("vietnamese", obj)
+            self.assertTrue((self.temp_dir / obj["crop_url"].removeprefix("/uploads/")).is_file())
+            x1, y1, x2, y2 = obj["box_normalized"]
+            self.assertTrue(0 <= x1 < x2 <= 1 and 0 <= y1 < y2 <= 1)
 
     def test_detect_hybrid_with_mocked_gemini(self):
-        test_img_path = Path("frontend/static/uploads/test.jpg")
         mock_gemini_payload = {
             "scene": "Study Desk",
             "scene_vietnamese": "Bàn học tập",
@@ -137,7 +145,7 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
 
         with patch.object(self.agent, "_call_gemini_vision_analysis", return_value=mock_gemini_payload):
             labels, output_path, detected_objects, scene_context = self.agent.detect_hybrid(
-                test_img_path, scan_mode="deep"
+                self.sample_image(), scan_mode="deep"
             )
 
             # Scene context should match mocked Gemini output
@@ -153,7 +161,6 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
             self.assertIn("pencil", gemini_labels)
 
     def test_disallowed_labels_filtering(self):
-        test_img_path = Path("frontend/static/uploads/test.jpg")
         mock_payload_with_disallowed = {
             "scene": "Kitchen",
             "scene_vietnamese": "Nhà bếp",
@@ -179,7 +186,7 @@ class TestVisionAgentPhase1And2(unittest.TestCase):
 
         with patch.object(self.agent, "_call_gemini_vision_analysis", return_value=mock_payload_with_disallowed):
             labels, output_path, detected_objects, scene_context = self.agent.detect_hybrid(
-                test_img_path, scan_mode="deep"
+                self.sample_image(), scan_mode="deep"
             )
             object_labels = [o["label"] for o in detected_objects]
             self.assertNotIn("water", object_labels, "'water' must be filtered by DISALLOWED_LABELS")
