@@ -8,7 +8,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-os.environ["YOLO_CONFIG_DIR"] = str(PROJECT_ROOT / "backend" / "resources" / "models")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 
@@ -127,7 +126,7 @@ class TestArchitectureAndRoutes(unittest.TestCase):
         self.assertTrue(DATABASE_DIR.exists())
         self.assertIsNotNone(DATABASE_URL)
         self.assertEqual(DEFAULT_GEMINI_MODEL, "gemini-2.5-flash")
-        self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.pt")
+        self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.onnx")
 
     def test_image_learning_log_phase2_db_persistence(self):
         """Verify image learning log stores and retrieves Phase 2 metadata correctly."""
