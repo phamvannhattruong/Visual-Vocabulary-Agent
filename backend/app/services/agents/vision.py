@@ -1,36 +1,26 @@
+from ast import literal_eval
 import json
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.core.settings import API_KEY_GEMINI, DEFAULT_GEMINI_MODEL, MODEL_DIR, UPLOAD_DIR
-from backend.app.utils.content import extract_json_from_ai, get_relative_url
-
-# Configure Ultralytics to store settings inside the project directory before importing YOLO
-os.environ["YOLO_CONFIG_DIR"] = str(MODEL_DIR)
-
 import cv2
 import numpy as np
+import onnxruntime as ort
 from PIL import Image, ImageOps
-from ultralytics import YOLO
+
+from backend.app.core.settings import (
+    API_KEY_GEMINI,
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_YOLO_MODEL,
+    MODEL_DIR,
+    UPLOAD_DIR,
+    YOLO_CPU_THREADS,
+)
+from backend.app.utils.content import extract_json_from_ai, get_relative_url
 
 logger = logging.getLogger("backend.app.services.agents.vision")
-
-try:
-    import spaces
-except ImportError:
-    # Fallback mock for non-ZeroGPU environments (local / testing)
-    class _SpacesMock:
-        @staticmethod
-        def GPU(func=None, **kwargs):
-            if func is not None:
-                return func
-            def decorator(fn):
-                return fn
-            return decorator
-    spaces = _SpacesMock()
 
 
 # Comprehensive CEFR level and Vietnamese dictionary for COCO 80 classes
@@ -151,9 +141,20 @@ class DetectAgent:
                scene environment understanding, and spatial relations.
     """
 
-    def __init__(self, model_name: str = "yolo11n.pt"):
+    def __init__(self, model_name: str = DEFAULT_YOLO_MODEL):
         self.model_path = MODEL_DIR / model_name
-        self.model = YOLO(str(self.model_path))
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = YOLO_CPU_THREADS
+        self.model = ort.InferenceSession(
+            str(self.model_path), sess_options=options, providers=["CPUExecutionProvider"]
+        )
+        model_input = self.model.get_inputs()[0]
+        self._input_name = model_input.name
+        metadata = self.model.get_modelmeta().custom_metadata_map
+        self._input_size = tuple(literal_eval(metadata["imgsz"]))
+        self._stride = int(metadata["stride"])
+        self._dynamic_input = not all(isinstance(size, int) for size in model_input.shape[-2:])
+        self._labels = literal_eval(metadata["names"])
         self._gemini_client = None
         self._face_cascade = None
 
@@ -356,7 +357,6 @@ class DetectAgent:
                 continue
         return None
 
-    @spaces.GPU
     def detect_objects(
         self,
         image_path: str | Path,
@@ -370,7 +370,58 @@ class DetectAgent:
         )
         return labels, output_path, detected_objects
 
-    @spaces.GPU
+    def _predict_yolo(self, img: np.ndarray, conf_threshold: float) -> list[tuple[str, float, list[int]]]:
+        height, width = img.shape[:2]
+        input_height, input_width = self._input_size
+        scale = min(input_width / width, input_height / height)
+        resized_width = max(1, round(width * scale))
+        resized_height = max(1, round(height * scale))
+        pad_width = input_width - resized_width
+        pad_height = input_height - resized_height
+        if self._dynamic_input:
+            pad_width %= self._stride
+            pad_height %= self._stride
+
+        left, top = pad_width // 2, pad_height // 2
+        resized = cv2.resize(img, (resized_width, resized_height), interpolation=cv2.INTER_LINEAR)
+        padded = cv2.copyMakeBorder(
+            resized, top, pad_height - top, left, pad_width - left,
+            cv2.BORDER_CONSTANT, value=(114, 114, 114),
+        )
+        tensor = np.ascontiguousarray(padded[:, :, ::-1].transpose(2, 0, 1)[None], dtype=np.float32)
+        tensor /= 255.0
+
+        # YOLO11 export without embedded NMS: [batch, 4 + classes, candidates].
+        predictions = self.model.run(None, {self._input_name: tensor})[0][0].T
+        class_scores = predictions[:, 4:]
+        class_ids = class_scores.argmax(axis=1)
+        scores = class_scores.max(axis=1)
+        keep = scores > conf_threshold
+        if not keep.any():
+            return []
+
+        boxes = predictions[keep, :4].copy()
+        scores = scores[keep]
+        class_ids = class_ids[keep]
+        # OpenCV NMS expects top-left x/y, width and height.
+        boxes[:, :2] -= boxes[:, 2:] / 2
+        selected = cv2.dnn.NMSBoxesBatched(
+            boxes.tolist(), scores.tolist(), class_ids.tolist(), conf_threshold, 0.7
+        )
+
+        detections = []
+        for index in selected[:300]:
+            x, y, box_width, box_height = boxes[index]
+            coordinates = [
+                int((x - left) / scale),
+                int((y - top) / scale),
+                int((x + box_width - left) / scale),
+                int((y + box_height - top) / scale),
+            ]
+            label = str(self._labels[class_ids[index]]).lower()
+            detections.append((label, float(scores[index]), coordinates))
+        return detections
+
     def detect_hybrid(
         self,
         image_path: str | Path,
@@ -379,7 +430,7 @@ class DetectAgent:
     ) -> Tuple[List[str], str | None, List[Dict[str, Any]], Dict[str, Any]]:
         """
         Phase 2 Hybrid Detection:
-        Combines local YOLO11 prediction with Gemini 2.5 Flash Vision
+        Combines local YOLO11 ONNX prediction on CPU with Gemini Vision
         for open-vocabulary detection and spatial scene reasoning.
 
         Args:
@@ -400,8 +451,7 @@ class DetectAgent:
             return [], None, [], {"scene": "Unknown", "description": "", "spatial_relationships": []}
 
         h, w = img.shape[:2]
-        runs_dir = MODEL_DIR / "runs"
-        results = self.model.predict(source=img, conf=conf_threshold, save=False, project=str(runs_dir))
+        predictions = self._predict_yolo(img, conf_threshold)
 
         crops_dir = UPLOAD_DIR / "crops"
         crops_dir.mkdir(parents=True, exist_ok=True)
@@ -409,62 +459,67 @@ class DetectAgent:
         detected_objects: List[Dict[str, Any]] = []
         raw_labels: List[str] = []
 
-        # 1. Process YOLO detections
-        if results and len(results) > 0 and results[0].boxes is not None:
-            for idx, box in enumerate(results[0].boxes):
-                class_id = int(box.cls[0])
-                label = str(self.model.names[class_id]).lower()
-                confidence = float(box.conf[0])
-                raw_labels.append(label)
+        # 1. Process YOLO detections and draw the local annotations
+        annotated_frame = img.copy()
+        for idx, (label, confidence, coordinates) in enumerate(predictions):
+            raw_labels.append(label)
+            x1, y1, x2, y2 = coordinates
+            x1 = max(0, min(x1, w - 1))
+            y1 = max(0, min(y1, h - 1))
+            x2 = max(x1 + 1, min(x2, w))
+            y2 = max(y1 + 1, min(y2, h))
 
-                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                x1 = max(0, min(x1, w - 1))
-                y1 = max(0, min(y1, h - 1))
-                x2 = max(x1 + 1, min(x2, w))
-                y2 = max(y1 + 1, min(y2, h))
+            margin_x = int((x2 - x1) * 0.05)
+            margin_y = int((y2 - y1) * 0.05)
+            crop_x1 = max(0, x1 - margin_x)
+            crop_y1 = max(0, y1 - margin_y)
+            crop_x2 = min(w, x2 + margin_x)
+            crop_y2 = min(h, y2 + margin_y)
 
-                margin_x = int((x2 - x1) * 0.05)
-                margin_y = int((y2 - y1) * 0.05)
-                crop_x1 = max(0, x1 - margin_x)
-                crop_y1 = max(0, y1 - margin_y)
-                crop_x2 = min(w, x2 + margin_x)
-                crop_y2 = min(h, y2 + margin_y)
+            cropped_img = img[crop_y1:crop_y2, crop_x1:crop_x2]
+            safe_label = re.sub(r"[^a-zA-Z0-9_-]", "_", label)
+            crop_filename = f"{path_obj.stem}_crop_{idx + 1}_{safe_label}.jpg"
+            crop_path = crops_dir / crop_filename
 
-                cropped_img = img[crop_y1:crop_y2, crop_x1:crop_x2]
-                safe_label = re.sub(r"[^a-zA-Z0-9_-]", "_", label)
-                crop_filename = f"{path_obj.stem}_crop_{idx + 1}_{safe_label}.jpg"
-                crop_path = crops_dir / crop_filename
+            if cropped_img.size > 0:
+                cv2.imwrite(str(crop_path), cropped_img)
+                crop_url = get_relative_url(str(crop_path))
+            else:
+                crop_url = None
 
-                if cropped_img.size > 0:
-                    cv2.imwrite(str(crop_path), cropped_img)
-                    crop_url = get_relative_url(str(crop_path))
-                else:
-                    crop_url = None
+            box_normalized = [
+                round(x1 / w, 4),
+                round(y1 / h, 4),
+                round(x2 / w, 4),
+                round(y2 / h, 4),
+            ]
 
-                box_normalized = [
-                    round(x1 / w, 4),
-                    round(y1 / h, 4),
-                    round(x2 / w, 4),
-                    round(y2 / h, 4),
-                ]
+            meta = COCO_METADATA.get(label, {"vietnamese": label, "cefr": "A1"})
 
-                meta = COCO_METADATA.get(label, {"vietnamese": label, "cefr": "A1"})
+            detected_objects.append({
+                "id": idx + 1,
+                "label": label,
+                "vietnamese": meta.get("vietnamese", label),
+                "confidence": round(confidence, 3),
+                "confidence_percent": round(confidence * 100),
+                "box": [x1, y1, x2, y2],
+                "box_normalized": box_normalized,
+                "crop_url": crop_url,
+                "cefr_level": meta.get("cefr", "A1"),
+                "source": "yolo",
+            })
 
-                detected_objects.append({
-                    "id": idx + 1,
-                    "label": label,
-                    "vietnamese": meta.get("vietnamese", label),
-                    "confidence": round(confidence, 3),
-                    "confidence_percent": round(confidence * 100),
-                    "box": [x1, y1, x2, y2],
-                    "box_normalized": box_normalized,
-                    "crop_url": crop_url,
-                    "cefr_level": meta.get("cefr", "A1"),
-                    "source": "yolo",
-                })
-
-        # 2. Prepare base annotated image
-        annotated_frame = results[0].plot() if (results and len(results) > 0) else img.copy()
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (40, 170, 70), 2)
+            cv2.putText(
+                annotated_frame,
+                f"{label} {confidence:.2f}",
+                (x1, max(14, y1 - 4)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (40, 170, 70),
+                2,
+                cv2.LINE_AA,
+            )
 
         # 3. Determine whether to invoke Gemini Vision (Hybrid Strategy)
         should_call_gemini = False
