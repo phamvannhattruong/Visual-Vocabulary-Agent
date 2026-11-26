@@ -70,7 +70,7 @@ Học từ vựng tiếng Anh theo phương pháp truyền thống thường m�
 | **Server Engine** | **Uvicorn** | ASGI Web Server chuẩn cho môi trường Python |
 | **Frontend UI** | **Jinja2 Templates + HTML5/CSS3/Vanilla JS** | Giao diện Server-Side Rendering kết hợp tương tác mượt mà, tải trang cực nhanh |
 | **Font & Icons** | **FontAwesome 6 + Plus Jakarta Sans** | Bộ icon chuẩn kỹ thuật và typography hiện đại, tối ưu khả năng đọc |
-| **Computer Vision** | **Ultralytics YOLO (YOLO11n)** | Mô hình mạng nơ-ron nhận diện vật thể cục bộ tốc độ cao, độ chính xác tối ưu |
+| **Computer Vision** | **YOLO11n ONNX + ONNX Runtime** | Nhận diện vật thể cục bộ trên CPU |
 | **Generative AI** | **Google Gemini Flash** | Sinh ngữ cảnh bài học, phân tích ngữ nghĩa và tạo phản hồi hội thoại thông minh |
 | **AI SDK** | `google-genai` & `langchain-google-genai` | Thư viện kết nối chính thức của Google để giao tiếp với mô hình Gemini |
 | **Voice & Speech** | **gTTS (Google Text-to-Speech)** | Chuyển đổi văn bản thành giọng đọc phát âm tiếng Anh chuẩn |
@@ -128,7 +128,7 @@ flowchart TD
 
 ### Luồng xử lý chi tiết tính năng Học qua ảnh:
 1. **Tiếp nhận:** Người học gửi file ảnh từ camera hoặc thư viện máy lên endpoint `/api/v1/analyze`.
-2. **Nhận diện:** `Vision Agent` chạy mô hình `yolo11n.pt` cục bộ, phát hiện các đối tượng (như `laptop`, `cup`, `chair`,...).
+2. **Nhận diện:** `Vision Agent` chạy mô hình `yolo11n.onnx` trên CPU, phát hiện các đối tượng (như `laptop`, `cup`, `chair`,...).
 3. **Biên soạn bài học:** `Teacher Agent` kết hợp danh sách vật thể với prompt chuyên biệt gửi tới Google Gemini để sinh nghĩa từ, phiên âm IPA, câu ví dụ thực tế và câu đố.
 4. **Phản hồi:** API trả về gói JSON hoàn chỉnh để Jinja2 Template hiển thị các thẻ từ vựng trực quan và hộp kiểm tra phát âm.
 
@@ -160,7 +160,7 @@ Visual_Vocabulary_Agent/
 │   │   ├── utils/                      # Các tiện ích bổ trợ xử lý nội dung
 │   │   └── main.py                     # Điểm khởi động ứng dụng FastAPI
 │   └── resources/models/               # Trọng số mô hình AI (YOLO11n weight)
-│       └── yolo11n.pt
+│       └── yolo11n.pt                  # Checkpoint để xuất yolo11n.onnx
 ├── database/                           # Script khởi tạo và kiểm tra CSDL
 │   └── scripts/
 │       ├── create_db.sql               # Script DDL cho Microsoft SQL Server
@@ -230,6 +230,17 @@ cd Visual_Vocabulary_Agent
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+Khi chạy trực tiếp từ một checkout mới, xuất ONNX một lần từ checkpoint đi kèm:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install "ultralytics==8.4.155" "onnx>=1.16,<2"
+python training/scripts/export_yolo_onnx.py
+```
+
+Nếu dùng Docker, bước build tự xuất mô hình. Ứng dụng chạy nhận diện bằng ONNX Runtime trên CPU.
+Mặc định YOLO dùng 4 luồng CPU. Có thể đặt `YOLO_CPU_THREADS=1` hoặc `2` trong `.env` khi deploy trên máy ít lõi.
 
 #### Bước 4: Thiết lập biến môi trường
 Tạo file `.env` tại thư mục gốc bằng cách sao chép file mẫu:
