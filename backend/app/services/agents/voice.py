@@ -1,10 +1,11 @@
 import io
-import os
-from gtts import gTTS
-from langchain_core.prompts import PromptTemplate
 
-# Import Agent lớp cha từ base_agent đã chuẩn hóa
+from gtts import gTTS
+
+from backend.app.schemas.pronunciation import HeardPronunciation, PronunciationEvaluation
 from backend.app.services.agents.base import Agent
+from backend.app.utils.pronunciation import PHONE_IPA, grade_pronunciation, reference_pronunciations
+
 
 class VoiceAgent(Agent):
     def __init__(self, default_language: str = 'en'):
@@ -32,45 +33,27 @@ class VoiceAgent(Agent):
         combined_text = lesson_md.replace("#", "").replace("*", "").replace("-", "").strip()
         return self.convert_text_to_speech(combined_text, language=self.default_language)
 
-    def check_speech(self, target_word: str, audio_bytes: bytes) -> str:
-        """
-        Sử dụng hàm generate_response từ lớp cha để đánh giá phát âm.
-        """
-        # 1. Cấu hình Prompt chi tiết
+    def check_speech(self, target_word: str, audio_bytes: bytes) -> PronunciationEvaluation:
+        """Evaluate a decoded WAV recording against the target word."""
+        references = reference_pronunciations(target_word)
+        phone_labels = ", ".join(f"{phone}=/{ipa}/" for phone, ipa in PHONE_IPA.items())
         prompt = f"""
-        As an English Pronunciation Coach, listen to the user's audio and evaluate their pronunciation.
-        Target word: "{target_word}"
-
-        Instructions:
-        1. Listen carefully to the audio provided.
-        2. Compare it with the correct pronunciation of the target word.
-        3. Return a JSON object with:
-           - "score": (int 0-100)
-           - "feedback": (string in Vietnamese, e.g., "Thiếu âm cuối 's'", "Phát âm sai nguyên âm 'a'")
-           - "tip": (string in Vietnamese, how to fix it)
+        Listen to this short recording of a learner practicing spoken English.
+        Return the speech sounds actually heard, in order, as a list of the phone codes below.
+        Use broad phone categories, ignoring stress, release, and other allophonic differences.
+        Include clear substituted and extra phones. Leave out phones that were not produced.
+        Do not correct the speech to a likely English word or infer its spelling.
+        Return null for phones if there is no speech or noise makes the sequence unreliable.
+        Phone codes: {phone_labels}.
         """
 
-        # 2. Đóng gói dữ liệu đầu vào (gồm prompt chữ và dữ liệu âm thanh)
-        # Định dạng dict này sẽ tự động được base_agent.py parse thành types.Part.from_bytes hợp lệ
-        contents = [
-            prompt,
-            {
-                "mime_type": "audio/wav",
-                "data": audio_bytes
-            }
-        ]
-
-        # 3. Gọi hàm generate_response của lớp cha BaseAgent
-        try:
-            # Sửa từ generate_content thành generate_response theo đúng lớp cha
-            # Thêm cấu hình sinh cấu trúc JSON sạch từ Gemini API
-            response_text = self.generate_response(
-                contents=contents,
-                config={
-                    "response_mime_type": "application/json"
-                }
-            )
-            return response_text
-        except Exception as e:
-            print(f"Error in Voice Agent check_speech: {e}")
-            return "{}"
+        response_text = self.generate_response(
+            contents=[prompt, {"mime_type": "audio/wav", "data": audio_bytes}],
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": HeardPronunciation,
+                "http_options": {"timeout": 10000},
+            },
+        )
+        observed = HeardPronunciation.model_validate_json(response_text)
+        return grade_pronunciation(references, observed.phones)
