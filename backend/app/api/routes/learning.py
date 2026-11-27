@@ -1,8 +1,10 @@
 """Image-analysis and pronunciation API endpoints."""
+import logging
 from functools import lru_cache
 from typing import Optional, TYPE_CHECKING
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from httpx import TimeoutException
 from sqlalchemy.orm import Session
 
 from backend.app.core.settings import UPLOAD_DIR
@@ -13,14 +15,16 @@ from backend.app.db.crud import (
     get_user_learning_memory,
 )
 from backend.app.schemas.learning import SynonymLessonRequest, SynonymLessonResponse
+from backend.app.schemas.pronunciation import PronunciationEvaluation
+from backend.app.utils.audio import InvalidRecording, MAX_RECORDING_BYTES, prepare_pronunciation_audio
 from backend.app.utils.content import (
-    extract_json_from_ai,
     extract_quiz,
     get_relative_url,
     save_upload_file,
 )
 
 router = APIRouter(tags=["learning"])
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from backend.app.services.agents.teacher import TeacherAgent
@@ -77,7 +81,6 @@ async def analyze_image(
         )
         lesson_text, quiz_data = extract_quiz(raw_response)
     except Exception as exc:
-        import logging
         logging.getLogger("uvicorn.error").warning(
             f"TeacherAgent online generation error: {exc}. Activating robust local lesson generator."
         )
@@ -121,38 +124,44 @@ async def analyze_image(
     }
 
 
-@router.post("/evaluate-pronunciation")
-async def evaluate_pronunciation(
+@router.post("/evaluate-pronunciation", response_model=PronunciationEvaluation)
+def evaluate_pronunciation(
     background_tasks: BackgroundTasks,
     http_request: Request,
-    target_word: str = Form(...),
+    target_word: str = Form(..., max_length=200),
     audio_file: UploadFile = File(...),
     user_id: Optional[int] = Form(None),
-):
+) -> PronunciationEvaluation:
+    target_word = target_word.strip()
+    if not target_word:
+        raise HTTPException(status_code=422, detail="Hãy chọn từ để luyện phát âm.")
+
+    audio_bytes = audio_file.file.read(MAX_RECORDING_BYTES + 1)
+    if len(audio_bytes) > MAX_RECORDING_BYTES:
+        raise HTTPException(status_code=413, detail="Bản ghi quá lớn. Hãy thu âm ngắn hơn.")
+
     try:
-        evaluation_raw = get_voice_agent().check_speech(target_word, await audio_file.read())
-        eval_result = extract_json_from_ai(evaluation_raw) or {
-            "feedback": evaluation_raw,
-            "score": 0,
-            "tip": "Please try again.",
-        }
-
-        client_ip = http_request.client.host if (http_request and http_request.client) else None
-
-        # Persist pronunciation evaluation log in background
-        background_tasks.add_task(
-            background_save_pronunciation_log,
-            target_word=target_word,
-            score=eval_result.get("score"),
-            feedback=eval_result.get("feedback"),
-            tip=eval_result.get("tip"),
-            user_id=user_id,
-            ip_address=client_ip,
-        )
-
-        return eval_result
+        wav_bytes = prepare_pronunciation_audio(audio_bytes, audio_file.content_type)
+        evaluation = get_voice_agent().check_speech(target_word, wav_bytes)
+    except InvalidRecording as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (TimeoutError, TimeoutException) as exc:
+        raise HTTPException(status_code=504, detail="Chấm phát âm quá thời gian chờ. Hãy thử lại.") from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI Agent error: {exc}") from exc
+        logger.warning("Pronunciation evaluation failed (%s)", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Chưa chấm được phát âm. Hãy thử lại.") from exc
+
+    client_ip = http_request.client.host if http_request.client else None
+    background_tasks.add_task(
+        background_save_pronunciation_log,
+        target_word=target_word,
+        score=evaluation.score,
+        feedback=evaluation.feedback,
+        tip=evaluation.tip,
+        user_id=user_id,
+        ip_address=client_ip,
+    )
+    return evaluation
 
 
 @router.post("/synonym-lesson", response_model=SynonymLessonResponse)
