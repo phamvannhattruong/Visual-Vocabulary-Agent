@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import and_, desc, func
 
 from backend.app.db.models import User, ChatLog, ImageLearningLog, PronunciationLog, ActivityLog
 from backend.app.db.session import SessionLocal
@@ -395,7 +395,15 @@ def get_user_learning_memory(
                     pass
 
         # 2. Query pronunciation logs to identify mastery vs weakness
-        pron_query = db.query(PronunciationLog)
+        # Older requests saved this exact fallback as a score of zero.
+        pron_query = db.query(PronunciationLog).filter(
+            PronunciationLog.score.is_not(None),
+            ~and_(
+                PronunciationLog.score == 0,
+                func.coalesce(PronunciationLog.tip, "") == "Please try again.",
+                func.coalesce(PronunciationLog.feedback, "").in_(("", "{}")),
+            ),
+        )
         if target_user_id is not None:
             pron_query = pron_query.filter(
                 (PronunciationLog.user_id == target_user_id) | (PronunciationLog.user_id.is_(None))
