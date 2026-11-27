@@ -21,3 +21,5 @@ backend/resources/models/Ultralytics/
 .claude
 .gemini
 .impeccable
+uploads/
+models 

@@ -55,7 +55,7 @@ def main():
         )
         print(f" -> Đã lưu Chat Log ID: {chat_entry.id}")
 
-        print("\n[2/4] Test lưu image learning log...")
+        print("\n[2/4] Test lưu image learning log (Phase 2)...")
         img_entry = log_image_learning(
             db=db,
             file_name="classroom.jpg",
@@ -63,9 +63,20 @@ def main():
             annotated_img_url="/uploads/annotated_classroom.jpg",
             lesson_context="Today we learn objects found in a modern classroom.",
             quiz_data={"question": "What is used for typing?", "options": ["book", "laptop"], "answer": "laptop"},
+            scan_mode="deep",
+            detected_objects=[
+                {"id": 1, "label": "laptop", "vietnamese": "máy tính xách tay", "confidence": 0.95, "cefr_level": "A1", "source": "yolo"},
+                {"id": 2, "label": "book", "vietnamese": "quyển sách", "confidence": 0.91, "cefr_level": "A1", "source": "yolo"}
+            ],
+            scene_context={
+                "scene": "Classroom",
+                "scene_vietnamese": "Phòng học",
+                "description": "A well-lit modern classroom with learning tools.",
+                "spatial_relationships": ["The laptop is on the desk."]
+            },
             user_id=user.id,
         )
-        print(f" -> Đã lưu Image Log ID: {img_entry.id}")
+        print(f" -> Đã lưu Image Log ID: {img_entry.id} (ScanMode: {img_entry.scan_mode})")
 
         print("\n[3/4] Test lưu pronunciation log...")
         pron_entry = log_pronunciation(

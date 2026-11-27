@@ -19,9 +19,6 @@ CROPS_DIR = UPLOAD_DIR / "crops"
 MODEL_DIR = PROJECT_ROOT / "backend" / "resources" / "models"
 DATABASE_DIR = PROJECT_ROOT / "database"
 
-# Ensure Ultralytics stores its config within the workspace models directory
-os.environ["YOLO_CONFIG_DIR"] = str(MODEL_DIR)
-
 for directory in (UPLOAD_DIR, CROPS_DIR, MODEL_DIR, DATABASE_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
@@ -42,4 +39,5 @@ HF_CHAT_SPACE_ID = os.getenv("HF_CHAT_SPACE_ID", "DeeplearningVN/VVA")
 HF_CHAT_TIMEOUT = float(os.getenv("HF_CHAT_TIMEOUT", "6.0"))
 
 DEFAULT_GEMINI_MODEL = os.getenv("DEFAULT_GEMINI_MODEL", "gemini-2.5-flash")
-DEFAULT_YOLO_MODEL = os.getenv("DEFAULT_YOLO_MODEL", "yolo11n.pt")
+DEFAULT_YOLO_MODEL = os.getenv("DEFAULT_YOLO_MODEL", "yolo11n.onnx")
+YOLO_CPU_THREADS = max(1, int(os.getenv("YOLO_CPU_THREADS", "4")))

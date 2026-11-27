@@ -46,7 +46,10 @@ class ImageLearningLog(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     user_id = Column(Integer, ForeignKey("User.id", ondelete="SET NULL"), nullable=True, index=True)
     file_name = Column(Unicode(255), nullable=True)
-    detected_labels = Column(UnicodeLongText, nullable=True)  # JSON-encoded array of detected objects
+    scan_mode = Column(Unicode(50), nullable=True, default="auto")  # auto, fast, deep (Phase 2 Upgrade)
+    detected_labels = Column(UnicodeLongText, nullable=True)  # JSON-encoded array of detected labels
+    detected_objects = Column(UnicodeLongText, nullable=True)  # JSON-encoded array of structured objects (Phase 2 Upgrade)
+    scene_context = Column(UnicodeLongText, nullable=True)  # JSON-encoded environmental context (Phase 2 Upgrade)
     annotated_img_url = Column(Unicode(500), nullable=True)
     lesson_context = Column(UnicodeLongText, nullable=True)
     quiz_data = Column(UnicodeLongText, nullable=True)  # JSON-encoded quiz question & options

@@ -9,10 +9,51 @@ Tất cả những thay đổi đáng chú ý của dự án **Visual Vocabulary
 ## [Chưa phát hành (Unreleased)]
 
 ### Sẽ bổ sung (Added)
-- Phân hệ phân tích khẩu hình miệng thời gian thực (Lip-Tracking) sử dụng MediaPipe Face Mesh.
+- Phân hệ phân tích khẩu hình miệng thời gian thực (Lip-Tracking Phase 2) sử dụng MediaPipe Face Mesh và tính toán chỉ số hình học.
 - Thuật toán Lặp lại ngắt quãng (Spaced Repetition System - SRS) theo đường cong quên lãng Ebbinghaus.
 - Hệ thống quản lý tài khoản người dùng, xác thực đăng nhập qua JWT/OAuth2 và đồng bộ tiến độ học tập trên mây.
 - Tính năng xuất bộ thẻ Flashcard (Anki / CSV export) từ các từ vựng đã nhận diện.
+
+---
+
+## [1.1.0] - 2026-11-23
+
+### Thêm mới (Added)
+- **Kiến trúc Nhận diện Hỗn hợp (Hybrid Vision Pipeline - Phase 2):**
+  - Tích hợp mô hình Gemini 2.5 Flash Vision đóng vai trò bổ trợ và mở rộng từ vựng mở (open-vocabulary detection) song hành cùng YOLO11n cục bộ.
+  - Hỗ trợ 3 chế độ quét thông minh (`scan_mode`):
+    - `auto`: Quét nhanh bằng YOLO11, tự động kích hoạt Gemini Vision nếu phát hiện dưới 2 đối tượng hoặc ảnh phức tạp.
+    - `fast`: Chế độ siêu tốc, chỉ chạy YOLO11 cục bộ (độ trễ dưới 50ms).
+    - `deep`: Chế độ chuyên sâu, luôn kết hợp phân tích đa mô hình YOLO11 + Gemini Flash Vision.
+  - Thuật toán tự động tinh chỉnh tọa độ bounding box (`refine_detected_box`): căn chỉnh theo tỷ lệ giải phẫu mặt cho kính mắt và thuật toán Canny edge density trimming loại bỏ nền tường trống.
+- **Phân tích Bối cảnh & Quan hệ Không gian (Scene Understanding):**
+  - Tự động nhận diện không gian môi trường (phòng học, bàn làm việc, nhà bếp,...), sinh mô tả bối cảnh song ngữ Anh - Việt.
+  - Phân tích vị trí tương quan giữa các đồ vật (Spatial relationships) và tích hợp vào prompt của Teacher Agent để sinh câu ví dụ chứa giới từ chỉ vị trí (*on, under, next to, between*).
+- **Cải tiến Giao diện Học từ vựng (UI/UX Upgrades):**
+  - Bộ chọn chế độ quét tương tác (*Scan Mode Selector*) ngay trên giao diện upload ảnh.
+  - Banner bối cảnh không gian (*Scene Context Banner*) hiển thị mô tả cảnh và các thẻ chip vị trí trực quan.
+  - Hệ thống thẻ từ vựng trực quan (*Visual Flashcards*): hiển thị ảnh crop từng vật thể, độ tin cậy %, nhãn nguồn nhận diện (YOLO / AI Gemini) và huy hiệu cấp độ từ vựng CEFR (A1 - C2).
+- **Nâng cấp Lưu trữ Cơ sở dữ liệu (Database Persistence):**
+  - Mở rộng bảng `image_learning_logs` trong CSDL với các cột: `scan_mode`, `detected_objects` (JSON chi tiết), và `scene_context` (JSON môi trường & quan hệ không gian).
+  - Cập nhật script DDL [database/scripts/create_db.sql](file:///database/scripts/create_db.sql) với cơ chế tự động di trú (`ALTER TABLE`) an toàn cho các hệ thống đã triển khai.
+  - Cập nhật API Endpoint `/api/v1/logs/learning` trả về đầy đủ các trường dữ liệu nâng cấp của Phase 2.
+- **Trí nhớ Cá nhân hóa Dài hạn của Agent (Long-Term Memory Profile):**
+  - Xây dựng hàm trích xuất trí nhớ học tập `get_user_learning_memory` từ lịch sử CSDL (`image_learning_logs`, `pronunciation_logs`).
+  - Tự động thống kê: danh sách từ vựng đã tích luỹ (`known_vocabulary`), các từ phát âm còn yếu cần củng cố (`weak_pronunciation_words`), từ đã thành thạo (`mastered_words`), và ước lượng trình độ thích ứng (`learner_level`: A1, A2, B1).
+  - Tích hợp các chỉ thị sư phạm thích ứng (*Pedagogical Memory Directives*) vào Teacher Agent: ưu tiên dạy từ mới chưa từng học (*Novelty Preference*), chủ động củng cố các từ phát âm yếu (*Reinforce Weak Words*), và điều chỉnh độ khó bài học theo năng lực thực tế.
+  - Giao diện người dùng hiển thị banner trí nhớ học viên (*Learner Memory Profile*) và gắn huy hiệu trạng thái (*Mới / Đã học / Cần luyện*) trên từng thẻ flashcard.
+- **Cơ chế Phân nhánh Bài giảng Theo Trí nhớ Học viên & Thử thách Ôn tập 3 Câu hỏi:**
+  - Đối với từ mới (chưa học): Tự động sinh bài giảng chi tiết gồm phiên âm IPA, nghĩa tiếng Việt chuẩn, và ví dụ câu thực tế (song ngữ Anh - Việt).
+  - Đối với từ đã học (review): Chuyển đổi linh hoạt sang **Bộ 3 thử thách trắc nghiệm đa tầng (3-Question Deep Review Challenge)**:
+    1. Câu hỏi 1: Kiểm tra phát âm, âm vị và ký hiệu IPA.
+    2. Câu hỏi 2: Kiểm tra nghĩa tiếng Việt chính xác và ngữ cảnh sử dụng.
+    3. Câu hỏi 3: Kiểm tra từ đồng nghĩa / gần nghĩa tiếng Anh (Synonym).
+  - **Bài giảng Mở rộng Từ đồng nghĩa (Synonym Expansion Lesson):**
+    - Ngay sau khi người học trả lời câu hỏi số 3 (từ đồng nghĩa), hệ thống tự động hiển thị thẻ bài giảng mini chi tiết về từ đồng nghĩa đó: phiên âm IPA, nút nghe phát âm trực tiếp, nghĩa tiếng Việt, ví dụ câu ngữ cảnh và nút bấm kích hoạt luyện phát âm từ vựng mới ngay lập tức.
+  - Bổ sung API `POST /api/v1/synonym-lesson` phục vụ truy vấn hoặc sinh động bài giảng từ đồng nghĩa.
+  - Thiết kế lại toàn bộ giao diện trắc nghiệm đạt chuẩn Studio Design System: thẻ câu hỏi đa mục, huy hiệu chuyên biệt (Phát âm, Nghĩa, Đồng nghĩa), nút đáp án hỗ trợ phím tắt và chỉ dẫn A-B-C, trạng thái đúng/sai trực quan và highlight đáp án đúng khi chọn sai.
+- **Hệ thống Kiểm thử (Test Suite):**
+  - Bổ sung bộ 15 unit tests tự động kiểm thử toàn diện: Hybrid detection, EXIF normalization, auto-refinement bounding box, Teacher spatial prepositions, lưu trữ dữ liệu CSDL và trích xuất Long-Term Memory.
 
 ---
 
@@ -55,6 +96,7 @@ Tất cả những thay đổi đáng chú ý của dự án **Visual Vocabulary
 
 ---
 
-[Chưa phát hành (Unreleased)]: https://github.com/your-username/Visual_Vocabulary_Agent/compare/v1.0.0...HEAD
+[Chưa phát hành (Unreleased)]: https://github.com/your-username/Visual_Vocabulary_Agent/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/your-username/Visual_Vocabulary_Agent/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/your-username/Visual_Vocabulary_Agent/releases/tag/v1.0.0
 

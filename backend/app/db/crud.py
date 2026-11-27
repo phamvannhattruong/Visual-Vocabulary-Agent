@@ -1,9 +1,9 @@
 """Database CRUD operations and background logging services."""
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import and_, desc, func
 
 from backend.app.db.models import User, ChatLog, ImageLearningLog, PronunciationLog, ActivityLog
 from backend.app.db.session import SessionLocal
@@ -24,6 +24,35 @@ def get_or_create_user(db: Session, username: str) -> User:
         db.commit()
         db.refresh(user)
     return user
+
+
+def resolve_user_id(db: Session, user_id: Optional[int] = None) -> Optional[int]:
+    """Ensure a valid user exists in User table to satisfy FK constraints."""
+    try:
+        if user_id is not None:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                return user.id
+            user = User(username=f"learner_{user_id}")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user.id
+        else:
+            user = db.query(User).first()
+            if not user:
+                user = User(username="learner_default")
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            return user.id if user else None
+    except Exception:
+        db.rollback()
+        try:
+            any_user = db.query(User).first()
+            return any_user.id if any_user else None
+        except Exception:
+            return None
 
 
 # ---------------------------------------------------------
@@ -57,10 +86,13 @@ def log_image_learning(
     annotated_img_url: Optional[str],
     lesson_context: Optional[str],
     quiz_data: Any,
+    scan_mode: Optional[str] = "auto",
+    detected_objects: Any = None,
+    scene_context: Any = None,
     user_id: Optional[int] = None,
 ) -> ImageLearningLog:
-    """Save an image analysis and lesson generation log."""
-    # Ensure serializable labels and quiz data
+    """Save an image analysis and lesson generation log with Phase 2 metadata."""
+    # Ensure serializable labels, objects, scene, and quiz data
     if isinstance(detected_labels, (list, tuple, set)):
         labels_str = json.dumps([str(l) for l in detected_labels], ensure_ascii=False)
     elif isinstance(detected_labels, str):
@@ -75,10 +107,29 @@ def log_image_learning(
     else:
         quiz_str = None
 
+    if isinstance(detected_objects, (list, tuple)):
+        objects_str = json.dumps(detected_objects, ensure_ascii=False)
+    elif isinstance(detected_objects, str):
+        objects_str = detected_objects
+    else:
+        objects_str = None
+
+    if isinstance(scene_context, dict):
+        scene_str = json.dumps(scene_context, ensure_ascii=False)
+    elif isinstance(scene_context, str):
+        scene_str = scene_context
+    else:
+        scene_str = None
+
+    valid_user_id = resolve_user_id(db, user_id)
+
     image_log = ImageLearningLog(
-        user_id=user_id,
+        user_id=valid_user_id,
         file_name=file_name,
+        scan_mode=scan_mode or "auto",
         detected_labels=labels_str,
+        detected_objects=objects_str,
+        scene_context=scene_str,
         annotated_img_url=annotated_img_url,
         lesson_context=lesson_context,
         quiz_data=quiz_str,
@@ -172,10 +223,13 @@ def background_save_image_log(
     annotated_img_url: Optional[str],
     lesson_context: Optional[str],
     quiz_data: Any,
+    scan_mode: Optional[str] = "auto",
+    detected_objects: Any = None,
+    scene_context: Any = None,
     user_id: Optional[int] = None,
     ip_address: Optional[str] = None,
 ):
-    """Safely log image analysis and lesson generation in background."""
+    """Safely log image analysis and lesson generation in background with Phase 2 metadata."""
     with SessionLocal() as db:
         try:
             log_image_learning(
@@ -185,13 +239,16 @@ def background_save_image_log(
                 annotated_img_url=annotated_img_url,
                 lesson_context=lesson_context,
                 quiz_data=quiz_data,
+                scan_mode=scan_mode,
+                detected_objects=detected_objects,
+                scene_context=scene_context,
                 user_id=user_id,
             )
             log_activity(
                 db=db,
                 action="ANALYZE_IMAGE",
                 status="SUCCESS",
-                details=f"File: {file_name}",
+                details=f"File: {file_name}, ScanMode: {scan_mode or 'auto'}",
                 ip_address=ip_address,
                 user_id=user_id,
             )
@@ -255,4 +312,137 @@ def get_pronunciation_logs(db: Session, limit: int = 50) -> List[PronunciationLo
 def get_activity_logs(db: Session, limit: int = 50) -> List[ActivityLog]:
     """Retrieve recent application activity logs."""
     return db.query(ActivityLog).order_by(desc(ActivityLog.created_at)).limit(limit).all()
+
+
+# ---------------------------------------------------------
+# Long-Term Memory Profile
+# ---------------------------------------------------------
+
+def get_user_learning_memory(
+    db: Session,
+    user_id: Optional[int] = None,
+    limit_recent: int = 50,
+) -> Dict[str, Any]:
+    """
+    Extract personalized long-term memory for an individual learner from database history.
+    Compiles:
+    1. Known vocabulary previously encountered in visual lessons.
+    2. Pronunciation strengths and weaknesses based on audio scoring logs.
+    3. Familiar physical environments and scenes visited.
+    4. Adaptive CEFR progression estimation.
+    """
+    target_user_id = resolve_user_id(db, user_id)
+
+    default_memory = {
+        "user_id": target_user_id,
+        "total_lessons": 0,
+        "known_vocabulary": [],
+        "known_vocabulary_count": 0,
+        "weak_pronunciation_words": [],
+        "mastered_words": [],
+        "recent_scenes": [],
+        "learner_level": "A1",
+    }
+
+    try:
+        known_words = set()
+        recent_scenes = []
+        seen_scenes = set()
+
+        # 1. Query past image learning logs (for this user, or guest logs where user_id is NULL)
+        img_query = db.query(ImageLearningLog)
+        if target_user_id is not None:
+            img_query = img_query.filter(
+                (ImageLearningLog.user_id == target_user_id) | (ImageLearningLog.user_id.is_(None))
+            )
+        img_logs = img_query.order_by(desc(ImageLearningLog.created_at)).limit(limit_recent).all()
+
+        for log in img_logs:
+            # Extract detected labels
+            if log.detected_labels:
+                try:
+                    parsed_labels = json.loads(log.detected_labels)
+                    if isinstance(parsed_labels, list):
+                        for lbl in parsed_labels:
+                            cleaned = str(lbl).strip().lower()
+                            if cleaned:
+                                known_words.add(cleaned)
+                except Exception:
+                    pass
+
+            # Extract structured detected objects
+            if getattr(log, "detected_objects", None):
+                try:
+                    parsed_objs = json.loads(log.detected_objects)
+                    if isinstance(parsed_objs, list):
+                        for obj in parsed_objs:
+                            lbl = str(obj.get("label", "")).strip().lower()
+                            if lbl:
+                                known_words.add(lbl)
+                except Exception:
+                    pass
+
+            # Extract scene context
+            if getattr(log, "scene_context", None):
+                try:
+                    sc_parsed = json.loads(log.scene_context)
+                    if isinstance(sc_parsed, dict):
+                        scene_name = sc_parsed.get("scene") or sc_parsed.get("scene_vietnamese")
+                        if scene_name and scene_name not in seen_scenes and scene_name != "Unknown":
+                            seen_scenes.add(scene_name)
+                            recent_scenes.append(scene_name)
+                except Exception:
+                    pass
+
+        # 2. Query pronunciation logs to identify mastery vs weakness
+        # Older requests saved this exact fallback as a score of zero.
+        pron_query = db.query(PronunciationLog).filter(
+            PronunciationLog.score.is_not(None),
+            ~and_(
+                PronunciationLog.score == 0,
+                func.coalesce(PronunciationLog.tip, "") == "Please try again.",
+                func.coalesce(PronunciationLog.feedback, "").in_(("", "{}")),
+            ),
+        )
+        if target_user_id is not None:
+            pron_query = pron_query.filter(
+                (PronunciationLog.user_id == target_user_id) | (PronunciationLog.user_id.is_(None))
+            )
+        pron_logs = pron_query.order_by(desc(PronunciationLog.created_at)).limit(limit_recent).all()
+
+        weak_words = set()
+        mastered_words = set()
+        latest_word_scores: Dict[str, int] = {}
+
+        for pron in pron_logs:
+            word = str(pron.target_word).strip().lower()
+            if word and word not in latest_word_scores and pron.score is not None:
+                latest_word_scores[word] = pron.score
+                if pron.score < 75:
+                    weak_words.add(word)
+                elif pron.score >= 80:
+                    mastered_words.add(word)
+
+        # 3. Dynamic CEFR level estimation
+        vocab_count = len(known_words)
+        if vocab_count < 15:
+            learner_level = "A1"
+        elif vocab_count < 40:
+            learner_level = "A2"
+        else:
+            learner_level = "B1"
+
+        return {
+            "user_id": target_user_id,
+            "total_lessons": len(img_logs),
+            "known_vocabulary": sorted(list(known_words)),
+            "known_vocabulary_count": vocab_count,
+            "weak_pronunciation_words": sorted(list(weak_words)),
+            "mastered_words": sorted(list(mastered_words)),
+            "recent_scenes": recent_scenes[:5],
+            "learner_level": learner_level,
+        }
+    except Exception as exc:
+        logger.warning(f"[MEMORY LOG WARNING] Could not retrieve learning memory: {exc}")
+        return default_memory
 

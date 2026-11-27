@@ -70,7 +70,7 @@ Học từ vựng tiếng Anh theo phương pháp truyền thống thường m�
 | **Server Engine** | **Uvicorn** | ASGI Web Server chuẩn cho môi trường Python |
 | **Frontend UI** | **Jinja2 Templates + HTML5/CSS3/Vanilla JS** | Giao diện Server-Side Rendering kết hợp tương tác mượt mà, tải trang cực nhanh |
 | **Font & Icons** | **FontAwesome 6 + Plus Jakarta Sans** | Bộ icon chuẩn kỹ thuật và typography hiện đại, tối ưu khả năng đọc |
-| **Computer Vision** | **Ultralytics YOLO (YOLO11n)** | Mô hình mạng nơ-ron nhận diện vật thể cục bộ tốc độ cao, độ chính xác tối ưu |
+| **Computer Vision** | **YOLO11n ONNX + ONNX Runtime** | Nhận diện vật thể cục bộ trên CPU |
 | **Generative AI** | **Google Gemini Flash** | Sinh ngữ cảnh bài học, phân tích ngữ nghĩa và tạo phản hồi hội thoại thông minh |
 | **AI SDK** | `google-genai` & `langchain-google-genai` | Thư viện kết nối chính thức của Google để giao tiếp với mô hình Gemini |
 | **Voice & Speech** | **gTTS (Google Text-to-Speech)** | Chuyển đổi văn bản thành giọng đọc phát âm tiếng Anh chuẩn |
@@ -128,7 +128,7 @@ flowchart TD
 
 ### Luồng xử lý chi tiết tính năng Học qua ảnh:
 1. **Tiếp nhận:** Người học gửi file ảnh từ camera hoặc thư viện máy lên endpoint `/api/v1/analyze`.
-2. **Nhận diện:** `Vision Agent` chạy mô hình `yolo11n.pt` cục bộ, phát hiện các đối tượng (như `laptop`, `cup`, `chair`,...).
+2. **Nhận diện:** `Vision Agent` chạy mô hình `yolo11n.onnx` trên CPU, phát hiện các đối tượng (như `laptop`, `cup`, `chair`,...).
 3. **Biên soạn bài học:** `Teacher Agent` kết hợp danh sách vật thể với prompt chuyên biệt gửi tới Google Gemini để sinh nghĩa từ, phiên âm IPA, câu ví dụ thực tế và câu đố.
 4. **Phản hồi:** API trả về gói JSON hoàn chỉnh để Jinja2 Template hiển thị các thẻ từ vựng trực quan và hộp kiểm tra phát âm.
 
@@ -160,7 +160,7 @@ Visual_Vocabulary_Agent/
 │   │   ├── utils/                      # Các tiện ích bổ trợ xử lý nội dung
 │   │   └── main.py                     # Điểm khởi động ứng dụng FastAPI
 │   └── resources/models/               # Trọng số mô hình AI (YOLO11n weight)
-│       └── yolo11n.pt
+│       └── yolo11n.pt                  # Checkpoint để xuất yolo11n.onnx
 ├── database/                           # Script khởi tạo và kiểm tra CSDL
 │   └── scripts/
 │       ├── create_db.sql               # Script DDL cho Microsoft SQL Server
@@ -231,6 +231,17 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+Khi chạy trực tiếp từ một checkout mới, xuất ONNX một lần từ checkpoint đi kèm:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install "ultralytics==8.4.155" "onnx>=1.16,<2"
+python training/scripts/export_yolo_onnx.py
+```
+
+Nếu dùng Docker, bước build tự xuất mô hình. Ứng dụng chạy nhận diện bằng ONNX Runtime trên CPU.
+Mặc định YOLO dùng 4 luồng CPU. Có thể đặt `YOLO_CPU_THREADS=1` hoặc `2` trong `.env` khi deploy trên máy ít lõi.
+
 #### Bước 4: Thiết lập biến môi trường
 Tạo file `.env` tại thư mục gốc bằng cách sao chép file mẫu:
 ```bash
@@ -300,11 +311,11 @@ Hệ thống được thiết kế với độ tin cậy cao (**High Resilience*
 
 | Nhóm chức năng | Phương thức | Đường dẫn API | Mô tả |
 | :--- | :---: | :--- | :--- |
-| **Phân tích hình ảnh** | `POST` | `/api/v1/analyze` | Tải ảnh lên, nhận diện vật thể bằng YOLO và sinh nội dung bài học |
+| **Phân tích hình ảnh** | `POST` | `/api/v1/analyze` | Tải ảnh lên, nhận diện vật thể bằng kiến trúc Hybrid (YOLO11 + Gemini 2.5 Flash Vision), hiểu bối cảnh không gian và sinh bài học theo chế độ quét (`auto`, `fast`, `deep`) |
 | **Đánh giá phát âm** | `POST` | `/api/v1/evaluate-pronunciation` | Upload file ghi âm để chấm điểm phát âm từ vựng |
 | **Gia sư AI Chat** | `POST` | `/api/v1/chat` | Trò chuyện với AI Tutor, nhận giải thích phát âm và ngữ pháp |
 | **Chat Streaming** | `POST` | `/api/v1/chat/stream` | Stream phản hồi câu trả lời của AI theo thời gian thực |
-| **Nhật ký bài học** | `GET` | `/api/v1/logs/learning` | Lấy danh sách lịch sử phân tích ảnh và từ vựng đã học |
+| **Nhật ký bài học** | `GET` | `/api/v1/logs/learning` | Lấy danh sách lịch sử phân tích ảnh, bối cảnh không gian, scan mode và flashcard từ vựng đã lưu |
 | **Nhật ký phát âm** | `GET` | `/api/v1/logs/pronunciation` | Lấy danh sách kết quả luyện đọc và điểm số |
 | **Kiểm tra kết nối** | `GET` | `/api/v1/logs/status` | Kiểm tra tình trạng kết nối CSDL và danh sách bảng hoạt động |
 
@@ -313,9 +324,11 @@ Hệ thống được thiết kế với độ tin cậy cao (**High Resilience*
 ## 10. Lộ trình phát triển (Roadmap)
 
 - [x] Tích hợp Computer Vision nhận diện vật thể YOLO11n.
+- [x] **Nâng cấp Vision Agent Phase 2:** Kiến trúc Hybrid YOLO11 + Gemini 2.5 Flash Vision, 3 chế độ quét (`auto`/`fast`/`deep`), hiểu bối cảnh không gian và thẻ học flashcard trực quan kèm CEFR.
+- [x] **Trí nhớ dài hạn cá nhân hóa (Agent Long-Term Memory):** Tích hợp hồ sơ học tập người dùng từ CSDL, tự động phát hiện từ phát âm yếu, ưu tiên dạy từ mới và cá nhân hóa lộ trình bài học.
 - [x] Tích hợp Google Gemini Flash tạo bài học ngữ cảnh và Chatbot gia sư.
 - [x] Xây dựng bảng tra cứu 44 âm chuẩn IPA và TTS audio.
-- [x] Cơ chế chuyển đổi CSDL linh hoạt (SQL Server $\leftrightarrow$ SQLite).
+- [x] Cơ chế chuyển đổi CSDL linh hoạt (SQL Server $\leftrightarrow$ SQLite) lưu trữ toàn diện nhật ký học tập.
 - [ ] **Theo dõi khẩu hình miệng thời gian thực (Lip-Tracking):** Ứng dụng MediaPipe Face Mesh phân tích chuyển động môi và góc mở hàm khi phát âm qua Webcam.
 - [ ] **Thuật toán Lặp lại ngắt quãng (Spaced Repetition System - SRS):** Tự động nhắc nhở ôn tập từ vựng theo đường cong quên lãng Ebbinghaus.
 - [ ] **Xác thực người dùng & Đồng bộ đám mây:** Đăng nhập an toàn qua OAuth2/JWT và lưu trữ tiến độ cá nhân hóa.

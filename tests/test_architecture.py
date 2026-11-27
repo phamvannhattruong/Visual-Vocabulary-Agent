@@ -8,7 +8,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-os.environ["YOLO_CONFIG_DIR"] = str(PROJECT_ROOT / "backend" / "resources" / "models")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 
@@ -127,7 +126,135 @@ class TestArchitectureAndRoutes(unittest.TestCase):
         self.assertTrue(DATABASE_DIR.exists())
         self.assertIsNotNone(DATABASE_URL)
         self.assertEqual(DEFAULT_GEMINI_MODEL, "gemini-2.5-flash")
-        self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.pt")
+        self.assertEqual(DEFAULT_YOLO_MODEL, "yolo11n.onnx")
+
+    def test_image_learning_log_phase2_db_persistence(self):
+        """Verify image learning log stores and retrieves Phase 2 metadata correctly."""
+        import json
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from backend.app.db.base import Base
+        from backend.app.db.models import ImageLearningLog
+        from backend.app.db.crud import log_image_learning, get_image_logs
+
+        test_engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=test_engine)
+        TestSession = sessionmaker(bind=test_engine)
+
+        with TestSession() as db:
+            log_entry = log_image_learning(
+                db=db,
+                file_name="test_scene.jpg",
+                detected_labels=["laptop", "cup"],
+                annotated_img_url="/uploads/test_scene_annotated.jpg",
+                lesson_context="Here is your lesson.",
+                quiz_data={"question": "What is on the desk?", "options": ["laptop", "apple"], "answer": "laptop"},
+                scan_mode="deep",
+                detected_objects=[
+                    {"id": 1, "label": "laptop", "cefr_level": "A1", "source": "yolo"},
+                    {"id": 2, "label": "cup", "cefr_level": "A1", "source": "gemini"},
+                ],
+                scene_context={
+                    "scene": "Workspace",
+                    "scene_vietnamese": "Góc làm việc",
+                    "description": "Modern desk with a laptop and a coffee cup.",
+                    "spatial_relationships": ["The cup is next to the laptop."],
+                },
+            )
+            self.assertIsNotNone(log_entry.id)
+            self.assertEqual(log_entry.scan_mode, "deep")
+
+            logs = get_image_logs(db=db, limit=10)
+            self.assertEqual(len(logs), 1)
+            saved = logs[0]
+            self.assertEqual(saved.file_name, "test_scene.jpg")
+            self.assertEqual(saved.scan_mode, "deep")
+
+            # Verify JSON deserialization of Phase 2 columns
+            objects = json.loads(saved.detected_objects)
+            self.assertEqual(len(objects), 2)
+            self.assertEqual(objects[0]["label"], "laptop")
+            self.assertEqual(objects[1]["source"], "gemini")
+
+            scene = json.loads(saved.scene_context)
+            self.assertEqual(scene["scene"], "Workspace")
+            self.assertEqual(scene["spatial_relationships"], ["The cup is next to the laptop."])
+
+    def test_user_learning_memory_profile(self):
+        """Verify get_user_learning_memory compiles past logs into an agent memory profile."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from backend.app.db.base import Base
+        from backend.app.db.crud import (
+            get_or_create_user,
+            log_image_learning,
+            log_pronunciation,
+            get_user_learning_memory,
+        )
+        from backend.app.schemas.learning import LearnerMemory
+
+        test_engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=test_engine)
+        TestSession = sessionmaker(bind=test_engine)
+
+        with TestSession() as db:
+            user = get_or_create_user(db, "learner_agent_test")
+
+            # Save 1 image log with objects
+            log_image_learning(
+                db=db,
+                file_name="desk.jpg",
+                detected_labels=["laptop", "cup", "pen"],
+                annotated_img_url="/uploads/desk.jpg",
+                lesson_context="Lesson text",
+                quiz_data={"question": "Q"},
+                scan_mode="auto",
+                scene_context={"scene": "Study Desk", "scene_vietnamese": "Bàn học"},
+                user_id=user.id,
+            )
+
+            # Save pronunciation logs
+            log_pronunciation(
+                db=db,
+                target_word="laptop",
+                score=88,
+                feedback="Excellent pronunciation",
+                tip="Keep it up",
+                user_id=user.id,
+            )
+            log_pronunciation(
+                db=db,
+                target_word="pen",
+                score=62,
+                feedback="Need more aspiration",
+                tip="Release more air",
+                user_id=user.id,
+            )
+
+            log_pronunciation(db, "laptop", 0, "{}", "Please try again.", user_id=user.id)
+            log_pronunciation(db, "cup", 0, "", "Please try again.", user_id=user.id)
+            log_pronunciation(db, "bottle", 0, "Bạn đọc nhầm từ.", "Hãy thử lại.", user_id=user.id)
+
+            # Extract memory profile
+            memory_data = get_user_learning_memory(db=db, user_id=user.id)
+
+            self.assertEqual(memory_data["user_id"], user.id)
+            self.assertEqual(memory_data["total_lessons"], 1)
+            self.assertIn("laptop", memory_data["known_vocabulary"])
+            self.assertIn("cup", memory_data["known_vocabulary"])
+            self.assertIn("pen", memory_data["known_vocabulary"])
+            self.assertIn("pen", memory_data["weak_pronunciation_words"])
+            self.assertIn("bottle", memory_data["weak_pronunciation_words"])
+            self.assertNotIn("cup", memory_data["weak_pronunciation_words"])
+            self.assertNotIn("laptop", memory_data["weak_pronunciation_words"])
+            self.assertIn("laptop", memory_data["mastered_words"])
+            self.assertIn("Study Desk", memory_data["recent_scenes"])
+            self.assertEqual(memory_data["learner_level"], "A1")
+
+            # Validate against Pydantic schema
+            learner_memory_obj = LearnerMemory(**memory_data)
+            self.assertEqual(learner_memory_obj.known_vocabulary_count, 3)
+            self.assertEqual(len(learner_memory_obj.weak_pronunciation_words), 2)
 
 
 if __name__ == "__main__":

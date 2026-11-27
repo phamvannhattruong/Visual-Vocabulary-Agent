@@ -49,7 +49,10 @@ BEGIN
         id INT IDENTITY(1,1) PRIMARY KEY,
         user_id INT NULL,
         file_name NVARCHAR(255) NULL,
+        scan_mode NVARCHAR(50) DEFAULT 'auto',   -- Chế độ quét: auto, fast, deep (Phase 2 Upgrade)
         detected_labels NVARCHAR(MAX) NULL,    -- Danh sách nhãn đối tượng (JSON)
+        detected_objects NVARCHAR(MAX) NULL,   -- Danh sách vật thể chi tiết, crop và CEFR (JSON) (Phase 2 Upgrade)
+        scene_context NVARCHAR(MAX) NULL,      -- Thông tin bối cảnh và quan hệ không gian (JSON) (Phase 2 Upgrade)
         annotated_img_url NVARCHAR(500) NULL,  -- Đường dẫn ảnh đã vẽ bbox
         lesson_context NVARCHAR(MAX) NULL,     -- Nội dung bài học sinh từ AI
         quiz_data NVARCHAR(MAX) NULL,          -- Dữ liệu quiz (JSON)
@@ -58,6 +61,16 @@ BEGIN
     );
 
     CREATE NONCLUSTERED INDEX IX_image_logs_created_at ON image_learning_logs(created_at);
+END
+ELSE
+BEGIN
+    -- Hỗ trợ di trú (migration) tự động cho cơ sở dữ liệu đã có sẵn
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('image_learning_logs') AND name = 'scan_mode')
+        ALTER TABLE image_learning_logs ADD scan_mode NVARCHAR(50) DEFAULT 'auto';
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('image_learning_logs') AND name = 'detected_objects')
+        ALTER TABLE image_learning_logs ADD detected_objects NVARCHAR(MAX) NULL;
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('image_learning_logs') AND name = 'scene_context')
+        ALTER TABLE image_learning_logs ADD scene_context NVARCHAR(MAX) NULL;
 END
 GO
 
