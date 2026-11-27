@@ -37,8 +37,7 @@ const evalTip = document.getElementById('eval-tip');
 
 let currentFile = null;
 let mediaStream = null;
-let mediaRecorder = null;
-let audioChunks = [];
+let practiceSession = null;
 
 // --- 1. Tabs & Navigation ---
 tabBtns.forEach(btn => {
@@ -619,73 +618,129 @@ function speak(text) {
 }
 
 function openPractice(word) {
+    cancelPractice();
+    practiceSession = { word, recorder: null, controller: new AbortController() };
     targetWordSpan.textContent = word;
     practiceModal.classList.remove('hidden');
     evaluationResult.classList.add('hidden');
-    recordStatus.textContent = "Click to start recording";
+    recordStatus.textContent = 'Nhấn vào nút để bắt đầu nói.';
     recordBtn.classList.remove('recording');
+    recordBtn.disabled = false;
+}
+
+function cancelPractice() {
+    const session = practiceSession;
+    practiceSession = null;
+    session?.controller.abort();
+    if (session?.recorder?.state === 'recording') {
+        session.recorder.stop();
+    }
 }
 
 closeModal.onclick = () => {
     practiceModal.classList.add('hidden');
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-    }
+    cancelPractice();
 };
 
 recordBtn.onclick = async () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
+    const session = practiceSession;
+    if (!session) return;
+
+    recordBtn.disabled = true;
+    if (session.recorder?.state === 'recording') {
         recordBtn.classList.remove('recording');
-        recordStatus.textContent = "Processing...";
+        recordStatus.textContent = 'Đang chấm phát âm…';
+        session.recorder.stop();
         return;
     }
 
+    evaluationResult.classList.add('hidden');
+    let stream;
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-
-        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            sendForEvaluation(audioBlob);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (practiceSession !== session) {
             stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+        session.recorder = recorder;
+        recorder.ondataavailable = event => {
+            if (event.data.size) chunks.push(event.data);
         };
 
-        mediaRecorder.start();
+        recorder.onerror = () => {
+            stream.getTracks().forEach(track => track.stop());
+            if (practiceSession !== session || session.recorder !== recorder) return;
+            session.recorder = null;
+            recordBtn.classList.remove('recording');
+            recordStatus.textContent = 'Không ghi được âm thanh. Hãy thu âm lại.';
+            recordBtn.disabled = false;
+        };
+
+        recorder.onstop = async () => {
+            stream.getTracks().forEach(track => track.stop());
+            if (practiceSession !== session || session.recorder !== recorder) return;
+            session.recorder = null;
+            recordBtn.disabled = true;
+            recordBtn.classList.remove('recording');
+            recordStatus.textContent = 'Đang chấm phát âm…';
+            const mimeType = chunks[0]?.type || recorder.mimeType;
+            const blob = new Blob(chunks, { type: mimeType });
+            await sendForEvaluation(blob, session);
+        };
+
+        recorder.start();
+        recordBtn.disabled = false;
         recordBtn.classList.add('recording');
-        recordStatus.textContent = "Recording... Click to stop";
-        evaluationResult.classList.add('hidden');
-    } catch (err) {
-        alert('Could not access microphone');
+        recordStatus.textContent = 'Đang thu âm. Nhấn lại để dừng.';
+    } catch {
+        stream?.getTracks().forEach(track => track.stop());
+        if (practiceSession !== session) return;
+        session.recorder = null;
+        recordBtn.disabled = false;
+        recordStatus.textContent = 'Không thể mở micrô. Hãy kiểm tra quyền truy cập và thử lại.';
     }
 };
 
-async function sendForEvaluation(blob) {
-    const formData = new FormData();
-    formData.append('audio_file', blob, 'recording.wav');
-    formData.append('target_word', targetWordSpan.textContent);
-    const savedUserId = localStorage.getItem('vva_user_id') || '1';
-    formData.append('user_id', savedUserId);
-
+async function sendForEvaluation(blob, session) {
     try {
+        if (!blob.size || !blob.type) {
+            recordStatus.textContent = 'Không đọc được bản ghi. Hãy thu âm lại.';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('audio_file', blob);
+        formData.append('target_word', session.word);
+        formData.append('user_id', localStorage.getItem('vva_user_id') || '1');
+
         const response = await fetch('/api/v1/evaluate-pronunciation', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: session.controller.signal
         });
 
         const data = await response.json();
+        if (practiceSession !== session) return;
+        if (!response.ok) {
+            recordStatus.textContent = typeof data.detail === 'string'
+                ? data.detail
+                : 'Chưa chấm được phát âm. Hãy thử lại.';
+            return;
+        }
 
         evaluationResult.classList.remove('hidden');
-        evalScore.textContent = data.score || 0;
-        evalFeedback.textContent = data.feedback || "No feedback available";
-        evalTip.textContent = data.tip || "Keep practicing!";
-        recordStatus.textContent = "Click to record again";
-
-    } catch (err) {
-        console.error(err);
-        recordStatus.textContent = "Evaluation failed";
+        evalScore.textContent = data.score;
+        evalFeedback.textContent = data.feedback;
+        evalTip.textContent = data.tip;
+        recordStatus.textContent = 'Nhấn vào nút để luyện lại.';
+    } catch {
+        if (practiceSession === session) {
+            recordStatus.textContent = 'Chưa chấm được phát âm. Hãy thử lại.';
+        }
+    } finally {
+        if (practiceSession === session) recordBtn.disabled = false;
     }
 }
