@@ -231,6 +231,10 @@ class TestArchitectureAndRoutes(unittest.TestCase):
                 user_id=user.id,
             )
 
+            log_pronunciation(db, "laptop", 0, "{}", "Please try again.", user_id=user.id)
+            log_pronunciation(db, "cup", 0, "", "Please try again.", user_id=user.id)
+            log_pronunciation(db, "bottle", 0, "Bạn đọc nhầm từ.", "Hãy thử lại.", user_id=user.id)
+
             # Extract memory profile
             memory_data = get_user_learning_memory(db=db, user_id=user.id)
 
@@ -240,6 +244,9 @@ class TestArchitectureAndRoutes(unittest.TestCase):
             self.assertIn("cup", memory_data["known_vocabulary"])
             self.assertIn("pen", memory_data["known_vocabulary"])
             self.assertIn("pen", memory_data["weak_pronunciation_words"])
+            self.assertIn("bottle", memory_data["weak_pronunciation_words"])
+            self.assertNotIn("cup", memory_data["weak_pronunciation_words"])
+            self.assertNotIn("laptop", memory_data["weak_pronunciation_words"])
             self.assertIn("laptop", memory_data["mastered_words"])
             self.assertIn("Study Desk", memory_data["recent_scenes"])
             self.assertEqual(memory_data["learner_level"], "A1")
@@ -247,7 +254,7 @@ class TestArchitectureAndRoutes(unittest.TestCase):
             # Validate against Pydantic schema
             learner_memory_obj = LearnerMemory(**memory_data)
             self.assertEqual(learner_memory_obj.known_vocabulary_count, 3)
-            self.assertEqual(len(learner_memory_obj.weak_pronunciation_words), 1)
+            self.assertEqual(len(learner_memory_obj.weak_pronunciation_words), 2)
 
 
 if __name__ == "__main__":
