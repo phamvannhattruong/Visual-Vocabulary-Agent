@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Cache-busted Stylesheet & Embedded Styles -->
-    <link rel="stylesheet" href="/assets/styles/imagelearn.css?v=2.5">
+    <link rel="stylesheet" href="/assets/styles/imagelearn.css?v=2.6">
     <style>
 /* Embedded Studio Styles for Instant Render */
 :root {
@@ -102,19 +102,10 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .flashcards-section-header { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.75rem; }
 .flashcards-section-title { font-size: 0.95rem; font-weight: 700; color: var(--ink-primary); display: flex; align-items: center; gap: 0.5rem; }
 .objects-count-badge { background: var(--accent-cobalt-light); color: var(--accent-cobalt); font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; border: 1px solid #BFDBFE; }
-.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 1rem; }
-.vocab-flashcard { background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--radius-soft); overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; display: flex; flex-direction: column; }
-.vocab-flashcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-flat); border-color: var(--accent-cobalt); }
 .card-thumb-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: var(--surface-subtle); overflow: hidden; }
-.card-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-thumb-img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .card-thumb-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--ink-caption); }
 .card-conf-badge { position: absolute; top: 5px; right: 5px; background: rgba(9, 13, 22, 0.75); backdrop-filter: blur(4px); color: #FFFFFF; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; }
-.card-info { padding: 0.6rem 0.5rem 0.5rem 0.5rem; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; gap: 0.4rem; }
-.card-word { font-size: 0.88rem; font-weight: 700; color: var(--ink-primary); text-transform: capitalize; text-align: center; }
-.card-btn-row { display: flex; gap: 0.35rem; }
-.card-action-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.35rem 0.2rem; border-radius: var(--radius-sharp); font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border-hairline); background: var(--surface-page); color: var(--ink-body); cursor: pointer; transition: all 0.15s ease; font-family: var(--font-sans); }
-.card-action-btn:hover { background: var(--accent-cobalt-light); color: var(--accent-cobalt); border-color: var(--accent-cobalt); }
-.card-action-btn.practice-btn:hover { background: var(--accent-terracotta-light); color: var(--accent-terracotta); border-color: var(--accent-terracotta); }
 .quick-tags-section { margin-top: 1rem; border-top: 1px solid var(--border-hairline); padding-top: 0.75rem; }
 .quick-tags-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-caption); margin-bottom: 0.5rem; display: block; }
 .tag-container { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -220,7 +211,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .card-source-badge { position: absolute; top: 5px; left: 5px; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 0.25rem; }
 .source-yolo { background: rgba(15, 23, 42, 0.8); color: #F8FAFC; }
 .source-gemini { background: rgba(29, 78, 216, 0.85); color: #FFFFFF; }
-.card-vietnamese { font-size: 0.78rem; color: var(--ink-caption); text-align: center; margin-top: -0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tag-cefr { margin-left: 0.35rem; font-size: 0.7rem; font-weight: 700; }
 .memory-banner { background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%); border: 1px solid #BFDBFE; border-radius: var(--radius-soft); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-flat); display: flex; flex-direction: column; gap: 0.75rem; }
 .memory-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
@@ -234,7 +224,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 .quiz-card-section { margin-bottom: 2.5rem; background: var(--surface-card); }
 .quiz-header-wrap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; width: 100%; }
 @media (max-width: 900px) { .results-grid, .overview-grid { grid-template-columns: 1fr; } .visual-overview-card { position: static; } .page-header { flex-direction: column; align-items: flex-start; gap: 1rem; } }
-@media (max-width: 640px) { .cards-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; } }
 @media (max-width: 768px) { .nav-links-track { display: none; } }
     </style>
 </head>
@@ -456,7 +445,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="detected-cards-grid" class="cards-grid"></div>
+                        <div id="detected-cards-grid"></div>
                     </div>
                 </div>
 
@@ -513,6 +502,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink-primary); le
 
     </div>
 
-    <script src="/assets/scripts/app.js?v=2.5"></script>
+    <script src="/assets/scripts/app.js?v=2.6"></script>
 </body>
 </html>
