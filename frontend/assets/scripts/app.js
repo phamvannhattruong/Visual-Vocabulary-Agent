@@ -246,7 +246,7 @@ function renderResults(data) {
         }
     }
 
-    // 1. Render Flashcards from detected objects (Phase 1 & Phase 2 Vision Upgrades)
+    // 1. Group detected crops by vocabulary word
     if (detectedCardsGrid) {
         detectedCardsGrid.innerHTML = '';
         const objects = data.detected_objects || [];
@@ -263,24 +263,23 @@ function renderResults(data) {
             current_objects: objects.map(o => o.label)
         });
 
-        if (objects.length > 0) {
-            objects.forEach(obj => {
-                const card = document.createElement('div');
-                card.className = 'vocab-flashcard';
-                card.dataset.label = obj.label;
-                const confPercent = obj.confidence_percent || Math.round((obj.confidence || 0) * 100);
-                const thumbHtml = obj.crop_url
-                    ? `<img class="card-thumb-img" src="${obj.crop_url}?t=${new Date().getTime()}" alt="${obj.label}" loading="lazy">`
-                    : `<div class="card-thumb-placeholder"><i class="fa-solid fa-image"></i></div>`;
+        const groups = new Map();
+        for (const obj of objects) {
+            const key = obj.label.trim().toLowerCase();
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(obj);
+        }
 
-                const cefrLevel = (obj.cefr_level || 'A1').toUpperCase();
-                const cefrClass = 'cefr-' + cefrLevel.toLowerCase();
+        if (groups.size > 0) {
+            const list = document.createElement('ul');
+            list.className = 'detected-word-list';
+            const imageVersion = Date.now();
 
-                const sourceBadge = obj.source === 'gemini'
-                    ? `<span class="card-source-badge source-gemini" title="Nhận diện bởi Gemini 2.5 Flash"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI</span>`
-                    : `<span class="card-source-badge source-yolo" title="Nhận diện bởi YOLO11"><i class="fa-solid fa-bolt" aria-hidden="true"></i> YOLO</span>`;
-
-                const wordLower = String(obj.label || '').toLowerCase().trim();
+            for (const [wordLower, matches] of groups) {
+                const [word] = matches;
+                const label = word.label.trim();
+                const item = document.createElement('li');
+                const cefrLevel = (word.cefr_level || 'A1').toUpperCase();
                 let memoryBadge = '';
                 if (weakSet.has(wordLower)) {
                     memoryBadge = `<span class="card-memory-badge memory-reinforce" title="Từ này bạn từng phát âm chưa chuẩn, cần ôn lại"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Cần luyện</span>`;
@@ -290,40 +289,76 @@ function renderResults(data) {
                     memoryBadge = `<span class="card-memory-badge memory-new" title="Từ vựng mới tinh đối với bạn!"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Mới</span>`;
                 }
 
-                const vnMeaning = obj.vietnamese
-                    ? `<span class="card-vietnamese" title="${obj.vietnamese}">${obj.vietnamese}</span>`
-                    : '';
-
-                card.innerHTML = `
-                    <div class="card-thumb-wrap">
-                        ${thumbHtml}
-                        ${sourceBadge}
+                item.innerHTML = `
+                    <div class="detected-word-heading">
+                        <h4 class="card-word"></h4>
+                        <span class="cefr-badge"></span>
+                        <span class="card-vietnamese"></span>
                         ${memoryBadge}
-                        <span class="card-conf-badge">${confPercent}%</span>
                     </div>
-                    <div class="card-info">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap;">
-                            <h4 class="card-word">${obj.label}</h4>
-                            <span class="cefr-badge ${cefrClass}">${cefrLevel}</span>
-                        </div>
-                        ${vnMeaning}
-                        <div class="card-btn-row">
-                            <button type="button" class="card-action-btn speak-btn" onclick="speak('${obj.label}')" title="Nghe phát âm" aria-label="Nghe ${obj.label}">
-                                <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
-                                <span>Nghe</span>
-                            </button>
-                            <button type="button" class="card-action-btn practice-btn" onclick="openPractice('${obj.label}')" title="Luyện nói" aria-label="Luyện nói ${obj.label}">
-                                <i class="fa-solid fa-microphone" aria-hidden="true"></i>
-                                <span>Luyện</span>
-                            </button>
-                        </div>
+                    <div class="detected-crop-grid"></div>
+                    <div class="card-btn-row">
+                        <button type="button" class="card-action-btn speak-btn" title="Nghe phát âm">
+                            <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+                            <span>Nghe</span>
+                        </button>
+                        <button type="button" class="card-action-btn practice-btn" title="Luyện nói">
+                            <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+                            <span>Luyện</span>
+                        </button>
                     </div>
                 `;
-                detectedCardsGrid.appendChild(card);
-            });
+                item.querySelector('.card-word').textContent = label;
+                const levelBadge = item.querySelector('.cefr-badge');
+                levelBadge.textContent = cefrLevel;
+                if (/^[abc][12]$/i.test(cefrLevel)) {
+                    levelBadge.classList.add(`cefr-${cefrLevel.toLowerCase()}`);
+                }
+                const meaning = item.querySelector('.card-vietnamese');
+                meaning.textContent = word.vietnamese || '';
+                meaning.hidden = !word.vietnamese;
+
+                const speakButton = item.querySelector('.speak-btn');
+                speakButton.setAttribute('aria-label', `Nghe ${label}`);
+                speakButton.addEventListener('click', () => speak(label));
+                const practiceButton = item.querySelector('.practice-btn');
+                practiceButton.setAttribute('aria-label', `Luyện nói ${label}`);
+                practiceButton.addEventListener('click', () => openPractice(label));
+
+                const crops = item.querySelector('.detected-crop-grid');
+                matches.forEach((obj, index) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'card-thumb-wrap';
+                    const sourceBadge = obj.source === 'gemini'
+                        ? `<span class="card-source-badge source-gemini" title="Nhận diện bởi Gemini 2.5 Flash"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI</span>`
+                        : `<span class="card-source-badge source-yolo" title="Nhận diện bởi YOLO11"><i class="fa-solid fa-bolt" aria-hidden="true"></i> YOLO</span>`;
+                    wrapper.innerHTML = sourceBadge;
+                    const confidence = document.createElement('span');
+                    confidence.className = 'card-conf-badge';
+                    confidence.textContent = `${obj.confidence_percent ?? Math.round((obj.confidence ?? 0) * 100)}%`;
+                    wrapper.appendChild(confidence);
+
+                    if (obj.crop_url) {
+                        const image = document.createElement('img');
+                        image.className = 'card-thumb-img';
+                        const url = new URL(obj.crop_url, document.baseURI);
+                        url.searchParams.set('t', imageVersion);
+                        image.src = url.href;
+                        image.alt = `${label} ${index + 1}`;
+                        image.loading = 'lazy';
+                        wrapper.prepend(image);
+                    } else {
+                        wrapper.insertAdjacentHTML('afterbegin', '<div class="card-thumb-placeholder" role="img" aria-label="Không có ảnh"><i class="fa-solid fa-image" aria-hidden="true"></i></div>');
+                    }
+                    crops.appendChild(wrapper);
+                });
+
+                list.appendChild(item);
+            }
+            detectedCardsGrid.appendChild(list);
         } else {
             detectedCardsGrid.innerHTML = `
-                <p style="grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-caption); text-align: center; padding: 1rem;">
+                <p style="font-size: 0.88rem; color: var(--ink-caption); text-align: center; padding: 1rem;">
                     Không tìm thấy vật thể riêng biệt nào. Hãy thử chuyển sang chế độ <strong>Quét sâu (Deep AI)</strong> hoặc chụp lại góc ảnh rõ hơn.
                 </p>
             `;
