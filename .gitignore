@@ -22,4 +22,5 @@ backend/resources/models/Ultralytics/
 .gemini
 .impeccable
 uploads/
-models 
+models
+.aws
